@@ -91,6 +91,67 @@ function ProductsPage() {
 
   const q = searchParams.get('q') || '';
   const categoryParam = searchParams.get('category') || '';
+  const categoryAliasMap = {
+    // Fashion
+    coat: 'Fashion',
+    coats: 'Fashion',
+    outerwear: 'Fashion',
+    jacket: 'Fashion',
+    jackets: 'Fashion',
+    knitwear: 'Fashion',
+    sweater: 'Fashion',
+    sweaters: 'Fashion',
+    hoodie: 'Fashion',
+    hoodies: 'Fashion',
+    dress: 'Fashion',
+    dresses: 'Fashion',
+    shoes: 'Fashion',
+    sneaker: 'Fashion',
+    sneakers: 'Fashion',
+    apparel: 'Fashion',
+    clothing: 'Fashion',
+
+    // Electronics
+    electronic: 'Electronics',
+    electronics: 'Electronics',
+    gadget: 'Electronics',
+    gadgets: 'Electronics',
+    phone: 'Electronics',
+    phones: 'Electronics',
+    smartphone: 'Electronics',
+    smartphones: 'Electronics',
+    laptop: 'Electronics',
+    laptops: 'Electronics',
+    camera: 'Electronics',
+    cameras: 'Electronics',
+
+    // Home
+    home: 'Home',
+    furniture: 'Home',
+    decor: 'Home',
+    decoration: 'Home',
+    kitchen: 'Home',
+    living: 'Home',
+    'home & living': 'Home',
+
+    // Sports
+    sport: 'Sports',
+    sports: 'Sports',
+    fitness: 'Sports',
+    outdoor: 'Sports',
+    gear: 'Sports',
+
+    // Beauty
+    beauty: 'Beauty',
+    skincare: 'Beauty',
+    makeup: 'Beauty',
+    cosmetics: 'Beauty',
+    grooming: 'Beauty',
+  };
+  const canonicalCategory = React.useMemo(() => {
+    const key = (categoryParam || '').toLowerCase();
+    return categoryAliasMap[key] || categoryParam;
+  }, [categoryParam]);
 
   const pageSize = 12;
 
@@ -118,14 +179,14 @@ function ProductsPage() {
 
   // Keep filters in sync with category from URL query (e.g., /products?category=Fashion)
   React.useEffect(() => {
-    if (!categoryParam) return;
+    if (!canonicalCategory) return;
     // Only update if different to avoid reset loops
     const curr = (filters.categories && filters.categories[0]) || '';
-    if (curr !== categoryParam) {
-      setFilters((prev) => ({ ...prev, categories: [categoryParam] }));
+    if (curr !== canonicalCategory) {
+      setFilters((prev) => ({ ...prev, categories: [canonicalCategory] }));
       setPage(1);
     }
-  }, [categoryParam]);
+  }, [canonicalCategory]);
 
   return (
     <Box sx={{ py: 3 }}>
@@ -143,6 +204,13 @@ function ProductsPage() {
           </Select>
         </FormControl>
       </Stack>
+      {!loading && items.length === 0 ? (
+        <Box sx={{ p: 4, textAlign: 'center', color: 'text.secondary' }}>
+          <Typography variant="h6" sx={{ mb: 1 }}>No products found</Typography>
+          <Typography variant="body2" sx={{ mb: 2 }}>Try clearing filters or browsing all products.</Typography>
+          <Button variant="outlined" onClick={() => { setFilters({ categories: [], brands: [], price: [0, 100], rating: [], color: [], size: [] }); setPage(1); }}>Clear Filters</Button>
+        </Box>
+      ) : (
       <Grid container spacing={2}>
         {(loading ? Array.from({ length: pageSize }) : items).map((p, idx) => (
           <Grid item key={p?.id || idx} xs={12} sm={6} md={4} lg={3}>
@@ -160,6 +228,7 @@ function ProductsPage() {
           </Grid>
         ))}
       </Grid>
+      )}
       <Dialog open={Boolean(quick)} onClose={() => setQuick(null)} fullWidth maxWidth="sm">
         <DialogTitle>{quick?.title}</DialogTitle>
         <DialogContent dividers>

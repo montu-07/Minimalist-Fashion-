@@ -14,50 +14,122 @@ import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CardMedia from '@mui/material/CardMedia';
 import CardActions from '@mui/material/CardActions';
+import CardActionArea from '@mui/material/CardActionArea';
+import Table from '@mui/material/Table';
+import TableBody from '@mui/material/TableBody';
+import TableCell from '@mui/material/TableCell';
+import TableContainer from '@mui/material/TableContainer';
+import TableRow from '@mui/material/TableRow';
+import Paper from '@mui/material/Paper';
+import List from '@mui/material/List';
+import ListItem from '@mui/material/ListItem';
+import ListItemIcon from '@mui/material/ListItemIcon';
+import ListItemText from '@mui/material/ListItemText';
+import CheckCircleIcon from '@mui/icons-material/CheckCircleOutline';
+import ColorLensIcon from '@mui/icons-material/ColorLensOutlined';
+import StraightenIcon from '@mui/icons-material/StraightenOutlined';
+import DryCleaningIcon from '@mui/icons-material/DryCleaningOutlined';
+import CategoryIcon from '@mui/icons-material/CategoryOutlined';
+import BrandingWatermarkIcon from '@mui/icons-material/BrandingWatermarkOutlined';
+import CheckroomIcon from '@mui/icons-material/CheckroomOutlined';
 import { Link } from 'react-router-dom';
 import { getAllProducts } from 'services/productsStore';
 import { useCart } from 'state/CartContext';
+import { useWishlist } from 'state/WishlistContext';
 import { getGalleryImages, getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
 
 function ProductDetailPage() {
   const { id } = useParams();
   const { addItem } = useCart();
+  const { toggle: toggleWish, contains: wishContains } = useWishlist();
   const [all, setAll] = React.useState(getAllProducts());
   React.useEffect(() => {
     const onUpdate = () => setAll(getAllProducts());
     window.addEventListener('products:updated', onUpdate);
     return () => window.removeEventListener('products:updated', onUpdate);
   }, []);
-  const product = React.useMemo(() => all.find((p) => String(p.id) === String(id)), [all, id]);
-  const images = React.useMemo(() => getGalleryImages(product, 5, { w: 800, h: 600 }), [product]);
+  const routeId = String(id);
+  const product = React.useMemo(() => all.find((p) => String(p.id) === routeId), [all, routeId]);
+  const [images, setImages] = React.useState(() => getGalleryImages(product, 5, { w: 800, h: 600 }));
   const [active, setActive] = React.useState(0);
   const [color, setColor] = React.useState(product?.color || '');
   const [size, setSize] = React.useState(product?.size || '');
 
-  if (!product) return <Typography>Product not found</Typography>;
+  // When route changes to a different product, reset local view state and scroll to top
+  React.useEffect(() => {
+    setActive(0);
+    setColor(product?.color || '');
+    setSize(product?.size || '');
+    // Clear images first to avoid mixed galleries while switching ids
+    setImages([]);
+    setImages(getGalleryImages(product, 5, { w: 800, h: 600 }));
+    try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
+  }, [routeId, product?.id]);
+  const specs = React.useMemo(() => ([
+    { label: 'Brand', value: product?.brand || '-' },
+    { label: 'Category', value: product?.category || '-' },
+    { label: 'Color', value: product?.color || '-' },
+    { label: 'Size', value: product?.size || '-' },
+    { label: 'Material', value: product?.material || 'Cotton Blend' },
+    { label: 'Fit', value: product?.fit || 'Regular' },
+    { label: 'Care', value: product?.care || 'Machine wash cold' },
+  ]), [product]);
+  const features = React.useMemo(() => (
+    product?.features && Array.isArray(product.features) && product.features.length
+      ? product.features
+      : [
+          'Timeless minimalist design suitable for everyday wear',
+          'Soft, breathable fabric for all-day comfort',
+          'Easy-care material; retains shape and color',
+          'Versatile fit that pairs well with casual or smart outfits',
+        ]
+  ), [product]);
+
+  const iconFor = (label) => {
+    switch (label) {
+      case 'Brand': return <BrandingWatermarkIcon fontSize="small" />;
+      case 'Category': return <CategoryIcon fontSize="small" />;
+      case 'Color': return <ColorLensIcon fontSize="small" />;
+      case 'Size': return <StraightenIcon fontSize="small" />;
+      case 'Material': return <CheckroomIcon fontSize="small" />;
+      case 'Care': return <DryCleaningIcon fontSize="small" />;
+      default: return <CheckCircleIcon fontSize="small" />;
+    }
+  };
+
+  if (!product) {
+    return (
+      <Box sx={{ py: 6, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Typography variant="body2" color="text.secondary">Loading product…</Typography>
+      </Box>
+    );
+  }
 
   return (
-    <Grid container spacing={3} sx={{ py: 3 }}>
+    <Grid key={product.id} container spacing={3} sx={{ py: 3 }}>
       <Grid item xs={12} md={6}>
-        <Box
-          component="img"
-          src={images[active]}
-          alt={product.title}
-          loading="lazy"
-          onError={(e) => onImgErrorSwap(e, product, { w: 800, h: 600, index: active })}
-          sx={{
-            width: '100%',
-            height: 420,
-            borderRadius: 2,
-            bgcolor: 'action.hover',
-            objectFit: 'cover',
-            boxShadow: (t) => t.shadows[2],
-          }}
-        />
-        <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+        {images[active] && (
+          <Box
+            component="img"
+            key={`${product.id}-${active}`}
+            src={images[active]}
+            alt={product.title}
+            loading="lazy"
+            onError={(e) => onImgErrorSwap(e, product, { w: 800, h: 600, index: active })}
+            sx={{
+              width: '100%',
+              height: 420,
+              borderRadius: 2,
+              bgcolor: 'action.hover',
+              objectFit: 'cover',
+              boxShadow: (t) => t.shadows[2],
+            }}
+          />
+        )}
+        <Stack key={`thumbs-${product.id}`} direction="row" spacing={1} sx={{ mt: 2 }}>
           {images.map((src, i) => (
             <Box
-              key={src}
+              key={`${product.id}-${i}`}
               component="img"
               src={src}
               alt={`${product.title} ${i + 1}`}
@@ -104,9 +176,65 @@ function ProductDetailPage() {
         </Stack>
         <Stack direction="row" spacing={2}>
           <Button variant="contained" onClick={() => addItem({ ...product, variant: { color, size } }, 1)}>Add to Cart</Button>
-          <Button variant="outlined">Add to Wishlist</Button>
+          <Button
+            variant={wishContains(product.id) ? 'contained' : 'outlined'}
+            color={wishContains(product.id) ? 'secondary' : 'primary'}
+            onClick={() => toggleWish(product)}
+          >
+            {wishContains(product.id) ? 'In Wishlist' : 'Add to Wishlist'}
+          </Button>
         </Stack>
       </Grid>
+      {/* Product details: Description + Specifications */}
+      <Grid item xs={12}>
+        <Grid container spacing={2}>
+          <Grid item xs={12} md={7}>
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>Product Description</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-line' }}>
+                {product.longDescription || product.description || 'This product features a timeless minimalist design, crafted for everyday comfort and style. Perfect for casual outings or layering, it pairs well with a variety of looks.'}
+              </Typography>
+              <Divider sx={{ my: 2 }} />
+              <Typography variant="subtitle1" sx={{ mb: 0.5 }}>Key Features</Typography>
+              <List dense sx={{ py: 0 }}>
+                {features.map((f, i) => (
+                  <ListItem key={i} sx={{ py: 0.5 }}>
+                    <ListItemIcon sx={{ minWidth: 32, color: 'primary.main' }}>
+                      <CheckCircleIcon fontSize="small" />
+                    </ListItemIcon>
+                    <ListItemText primary={<Typography variant="body2">{f}</Typography>} />
+                  </ListItem>
+                ))}
+              </List>
+            </Paper>
+          </Grid>
+          <Grid item xs={12} md={5}>
+            <Paper variant="outlined" sx={{ p: { xs: 2, md: 2.5 }, borderRadius: 2 }}>
+              <Typography variant="h6" sx={{ mb: 1 }}>Specifications</Typography>
+              <TableContainer>
+                <Table size="small" aria-label="Product specifications">
+                  <TableBody>
+                    {specs.map((row) => (
+                      <TableRow key={row.label} sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ width: 200 }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {iconFor(row.label)}
+                            <Typography variant="body2" color="text.secondary">{row.label}</Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ textTransform: row.label === 'Color' ? 'capitalize' : 'none' }}>{row.value}</Typography>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+        </Grid>
+      </Grid>
+
       <Grid item xs={12}>
         <Divider sx={{ my: 3 }} />
         <Typography variant="h6" sx={{ mb: 2 }}>Related Products</Typography>
@@ -128,18 +256,20 @@ function ProductDetailPage() {
                   '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 },
                 }}
               >
-                <CardMedia
-                  component="img"
-                  src={getProductImage(rp, { w: 400, h: 300, index: 0 })}
-                  alt={rp.title}
-                  loading="lazy"
-                  onError={(e) => onImgErrorSwap(e, rp, { w: 400, h: 300, index: 0 })}
-                  sx={{ height: 120, bgcolor: 'action.hover', objectFit: 'cover', width: '100%' }}
-                />
-                <CardContent sx={{ py: 1, px: 1 }}>
-                  <Typography variant="subtitle2" noWrap sx={{ fontSize: '0.9rem' }}>{rp.title}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>${rp.price.toFixed(2)}</Typography>
-                </CardContent>
+                <CardActionArea component={Link} to={`/product/${rp.id}`}>
+                  <CardMedia
+                    component="img"
+                    src={getProductImage(rp, { w: 400, h: 300, index: 0 })}
+                    alt={rp.title}
+                    loading="lazy"
+                    onError={(e) => onImgErrorSwap(e, rp, { w: 400, h: 300, index: 0 })}
+                    sx={{ height: 120, bgcolor: 'action.hover', objectFit: 'cover', width: '100%' }}
+                  />
+                  <CardContent sx={{ py: 1, px: 1 }}>
+                    <Typography variant="subtitle2" noWrap sx={{ fontSize: '0.9rem' }}>{rp.title}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>${rp.price.toFixed(2)}</Typography>
+                  </CardContent>
+                </CardActionArea>
                 <CardActions sx={{ pt: 0, px: 1, pb: 1 }}>
                   <Button component={Link} to={`/product/${rp.id}`} size="small">View</Button>
                   <Button size="small" onClick={() => addItem(rp, 1)} variant="contained">Add</Button>

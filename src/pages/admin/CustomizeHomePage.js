@@ -21,6 +21,8 @@ const defaultConfig = {
   themeMode: 'light', // light | dark | custom
   customPrimaryColor: '#1976d2',
   banner: { image: '', ctaText: 'Discover the latest products', buttonText: 'Shop Now', link: '/products' },
+  heroImage: '',
+  collectionImage: '',
   featuredProducts: [],
   layoutStyle: 'grid', // grid | list | masonry
   widgets: { newArrivals: true, bestSellers: true, discounts: true, testimonials: false },
@@ -51,6 +53,15 @@ export default function CustomizeHomePage() {
     const reader = new FileReader();
     reader.onload = () => setCfg((c) => ({ ...c, banner: { ...c.banner, image: reader.result } }));
     reader.readAsDataURL(file);
+  };
+
+  const onHeroFile = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader(); reader.onload = () => setCfg((c) => ({ ...c, heroImage: reader.result })); reader.readAsDataURL(file);
+  };
+  const onCollectionFile = async (e) => {
+    const file = e.target.files?.[0]; if (!file) return;
+    const reader = new FileReader(); reader.onload = () => setCfg((c) => ({ ...c, collectionImage: reader.result })); reader.readAsDataURL(file);
   };
 
   const toggleWidget = (k) => setCfg((c) => ({ ...c, widgets: { ...c.widgets, [k]: !c.widgets[k] } }));
@@ -103,6 +114,30 @@ export default function CustomizeHomePage() {
         {cfg.banner.image && (
           <Box sx={{ mt: 2 }}>
             <img src={cfg.banner.image} alt="banner" style={{ maxWidth: '100%', borderRadius: 8 }} />
+          </Box>
+        )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1">3b. Hero Image</Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1 }}>
+          <Button component="label" variant="outlined">Upload Hero<input type="file" accept="image/*" hidden onChange={onHeroFile} /></Button>
+        </Stack>
+        {cfg.heroImage && (
+          <Box sx={{ mt: 2 }}>
+            <img src={cfg.heroImage} alt="hero" style={{ maxWidth: '100%', borderRadius: 8 }} />
+          </Box>
+        )}
+      </Paper>
+
+      <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
+        <Typography variant="subtitle1">3c. Collection Banner Image</Typography>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ mt: 1 }}>
+          <Button component="label" variant="outlined">Upload Collection<input type="file" accept="image/*" hidden onChange={onCollectionFile} /></Button>
+        </Stack>
+        {cfg.collectionImage && (
+          <Box sx={{ mt: 2 }}>
+            <img src={cfg.collectionImage} alt="collection" style={{ maxWidth: '100%', borderRadius: 8 }} />
           </Box>
         )}
       </Paper>

@@ -10,6 +10,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { MeshReflectorMaterial, Environment } from '@react-three/drei';
 import * as THREE from 'three';
+import BrandLogo from 'components/BrandLogo';
 
 function Footer() {
   return (
@@ -86,6 +87,9 @@ function Footer() {
       </Box>
 
       <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+          <BrandLogo size={24} withWordmark />
+        </Box>
         {/* Newsletter */}
         <Box sx={{ mb: 4, textAlign: 'center' }}>
           <Typography variant="h6" sx={{ mb: 1 }}>Subscribe to our emails</Typography>

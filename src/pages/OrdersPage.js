@@ -9,17 +9,17 @@ import TableContainer from '@mui/material/TableContainer';
 import TableHead from '@mui/material/TableHead';
 import TableRow from '@mui/material/TableRow';
 import Divider from '@mui/material/Divider';
+import Button from '@mui/material/Button';
+import { Link } from 'react-router-dom';
+import { getAllOrders } from 'services/ordersStore';
 
 export default function OrdersPage() {
-  const [rows] = React.useState(
-    Array.from({ length: 6 }).map((_, i) => ({
-      id: 2000 + i,
-      date: new Date(Date.now() - i * 86400000).toLocaleDateString(),
-      total: 39.99 + i * 12,
-      status: ['Processing', 'Shipped', 'Delivered'][i % 3],
-      items: Math.ceil(Math.random() * 4),
-    }))
-  );
+  const [rows, setRows] = React.useState(getAllOrders());
+  React.useEffect(() => {
+    const onUpd = () => setRows(getAllOrders());
+    window.addEventListener('orders:updated', onUpd);
+    return () => window.removeEventListener('orders:updated', onUpd);
+  }, []);
 
   return (
     <Box sx={{ py: 3 }}>
@@ -39,18 +39,27 @@ export default function OrdersPage() {
             <TableBody>
               {rows.map((o) => (
                 <TableRow key={o.id} hover>
-                  <TableCell>{o.id}</TableCell>
-                  <TableCell>{o.date}</TableCell>
-                  <TableCell>{o.items}</TableCell>
+                  <TableCell>
+                    <Button component={Link} to={`/orders/${o.id}`} size="small">{o.id}</Button>
+                  </TableCell>
+                  <TableCell>{new Date(o.createdAt).toLocaleDateString()}</TableCell>
+                  <TableCell>{o.items.reduce((n, i) => n + i.qty, 0)}</TableCell>
                   <TableCell>{o.status}</TableCell>
-                  <TableCell align="right">${o.total.toFixed(2)}</TableCell>
+                  <TableCell align="right">${o.totals?.total?.toFixed?.(2) ?? '-'}</TableCell>
                 </TableRow>
               ))}
+              {rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={5}>
+                    <Typography variant="body2" color="text.secondary">No orders yet.</Typography>
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
         <Divider sx={{ mt: 2 }} />
-        <Typography variant="caption" color="text.secondary">Note: Demo orders are local to your session.</Typography>
+        <Typography variant="caption" color="text.secondary">Orders are stored locally for demo. Integrate your backend to persist securely.</Typography>
       </Paper>
     </Box>
   );

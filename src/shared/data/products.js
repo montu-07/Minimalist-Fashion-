@@ -8,6 +8,8 @@ const products = Array.from({ length: 60 }).map((_, i) => {
   const brand = brands[(i + 1) % brands.length];
   const color = colors[(i + 2) % colors.length];
   const size = sizes[(i + 3) % sizes.length];
+  const tags = [];
+  if (i % 4 === 0) tags.push('new');
   return {
     id: i + 1,
     title: `${brand} ${category} Item ${i + 1}`,
@@ -18,6 +20,8 @@ const products = Array.from({ length: 60 }).map((_, i) => {
     brand,
     color,
     size,
+    tags,
+    createdAt: Date.now() - i * 86400000,
   };
 });
 

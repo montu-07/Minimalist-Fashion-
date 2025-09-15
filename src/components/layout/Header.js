@@ -32,6 +32,7 @@ import { useWishlist } from 'state/WishlistContext';
 import { useColorMode } from 'theme';
 import { useNavigate, Link } from 'react-router-dom';
 import { useUI } from 'state/UIContext';
+import BrandLogo from 'components/BrandLogo';
 import { fetchSearchSuggestions, saveRecentSearch } from 'services/searchApi';
 import { useAuth } from 'state/AuthContext';
 
@@ -77,33 +78,8 @@ function Header() {
           <IconButton edge="start" sx={{ display: { xs: 'inline-flex', md: 'none' } }} aria-label="menu" onClick={() => setMobileOpen(true)}>
             <MenuIcon />
           </IconButton>
-          <Box
-            component={Link}
-            to="/"
-            sx={{
-              display: 'flex', alignItems: 'center', gap: 1,
-              color: 'inherit', textDecoration: 'none',
-              '&:hover': { opacity: 0.9 },
-            }}
-            aria-label="Minimalist Fashion home"
-          >
-            {/* Minimal monogram logo */}
-            <Box
-              component="svg"
-              width={26}
-              height={26}
-              viewBox="0 0 24 24"
-              fill="none"
-              xmlns="http://www.w3.org/2000/svg"
-              sx={{ display: 'block' }}
-            >
-              <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M7.5 15.5L12 8l4.5 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              <path d="M9 15.5h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-            </Box>
-            <Typography variant="h6" sx={{ fontFamily: 'Playfair Display, serif', fontWeight: 700, letterSpacing: 0.4 }}>
-              Minimalist Fashion
-            </Typography>
+          <Box component={Link} to="/" sx={{ color: 'inherit', textDecoration: 'none', '&:hover': { opacity: 0.9 } }} aria-label="Minimalist Fashion home">
+            <BrandLogo size={26} withWordmark />
           </Box>
         </Box>
         <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', gap: 1 }}>
@@ -125,9 +101,9 @@ function Header() {
             Shop
           </Button>
           <Menu id="categories-menu" anchorEl={catEl} open={Boolean(catEl)} onClose={() => setCatEl(null)} MenuListProps={{ 'aria-labelledby': 'categories-button' }}>
-            <MenuItem component={Link} to="/products?category=Fashion" onClick={() => setCatEl(null)}>Fashion</MenuItem>
-            <MenuItem component={Link} to="/products?category=Beauty" onClick={() => setCatEl(null)}>Beauty</MenuItem>
-            <MenuItem component={Link} to="/products?category=Electronics" onClick={() => setCatEl(null)}>Electronics</MenuItem>
+            <MenuItem component={Link} to="/products?category=fashion" onClick={() => setCatEl(null)}>Fashion</MenuItem>
+            <MenuItem component={Link} to="/products?category=beauty" onClick={() => setCatEl(null)}>Beauty</MenuItem>
+            <MenuItem component={Link} to="/products?category=electronics" onClick={() => setCatEl(null)}>Electronics</MenuItem>
             <MenuItem component={Link} to="/products?category=Home" onClick={() => setCatEl(null)}>Home & Living</MenuItem>
           </Menu>
         </Box>
@@ -138,7 +114,7 @@ function Header() {
             inputValue={q}
             onInputChange={(_, v) => setQ(v)}
             onChange={(_, val) => val && goSearch(val)}
-            sx={{ width: '100%' }}
+            sx={{ width: '50%' }}
             renderInput={(params) => (
               <TextField
                 {...params}
@@ -214,22 +190,7 @@ function Header() {
         <Box sx={{ width: 300, p: 2 }} role="presentation">
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                component="svg"
-                width={22}
-                height={22}
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                sx={{ display: 'block' }}
-              >
-                <circle cx="12" cy="12" r="9.5" stroke="currentColor" strokeWidth="1.5" />
-                <path d="M7.5 15.5L12 8l4.5 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                <path d="M9 15.5h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-              </Box>
-              <Typography variant="h6" sx={{ fontFamily: 'Playfair Display, serif', fontWeight: 700, letterSpacing: 0.4 }}>
-                Minimalist Fashion
-              </Typography>
+              <BrandLogo size={22} withWordmark />
             </Box>
             <Tooltip title="Close"><IconButton onClick={() => setMobileOpen(false)}><MenuIcon /></IconButton></Tooltip>
           </Box>

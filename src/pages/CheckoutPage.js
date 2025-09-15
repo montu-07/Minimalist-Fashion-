@@ -19,12 +19,17 @@ import Paper from '@mui/material/Paper';
 import Checkbox from '@mui/material/Checkbox';
 import Alert from '@mui/material/Alert';
 import { useCart } from 'state/CartContext';
+import { useNavigate } from 'react-router-dom';
+import { createOrder } from 'services/ordersStore';
+import { useAuth } from 'state/AuthContext';
 
 const steps = ['Address', 'Delivery', 'Payment', 'Review'];
 
 function CheckoutPage() {
   const [activeStep, setActiveStep] = React.useState(0);
   const { items, subtotal, clear } = useCart();
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [address, setAddress] = React.useState({
     firstName: '',
@@ -40,12 +45,14 @@ function CheckoutPage() {
     save: true,
   });
   const [delivery, setDelivery] = React.useState('standard');
-  const [paymentMethod, setPaymentMethod] = React.useState('card'); // 'card' | 'upi' | 'netbanking' | 'wallet'
+  const [paymentMethod, setPaymentMethod] = React.useState('card'); // 'card' | 'upi' | 'netbanking' | 'wallet' | 'cod' | 'paypal' | 'stripe'
   const [payment, setPayment] = React.useState({
     name: '', card: '', exp: '', cvv: '',
     vpa: '', // upi id
     bank: '', // net banking
     wallet: '', // wallet name
+    paypalEmail: '',
+    stripeEmail: '',
   });
   const [error, setError] = React.useState('');
 
@@ -84,6 +91,10 @@ function CheckoutPage() {
       } else if (paymentMethod === 'wallet') {
         const { wallet } = payment;
         if (!String(wallet).trim()) { setError('Please select a digital wallet.'); return false; }
+      } else if (paymentMethod === 'paypal') {
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payment.paypalEmail)) { setError('Enter your PayPal email.'); return false; }
+      } else if (paymentMethod === 'stripe') {
+        if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(payment.stripeEmail)) { setError('Enter your Stripe account email.'); return false; }
       }
     }
     return true;
@@ -97,9 +108,21 @@ function CheckoutPage() {
   const handleBack = () => setActiveStep((s) => s - 1);
 
   const placeOrder = () => {
-    // Placeholder: clear cart and show confirmation
+    if (!validateStep()) return;
+    // Simulate third-party handoff success (replace with real gateways)
+    const paymentMeta = {
+      last4: payment.card.replace(/\D/g, '').slice(-4),
+      vpa: payment.vpa,
+      bank: payment.bank,
+      wallet: payment.wallet,
+      paypalEmail: payment.paypalEmail,
+      stripeEmail: payment.stripeEmail,
+    };
+    const totals = { subtotal, shipping: shippingCost, total };
+    const order = createOrder({ items, address, delivery, paymentMethod, paymentMeta, totals, user });
     clear();
     setActiveStep(steps.length);
+    navigate(`/orders/${order.id}`);
   };
 
   const AddressForm = (
@@ -138,6 +161,9 @@ function CheckoutPage() {
           <FormControlLabel value="upi" control={<Radio />} label="UPI" />
           <FormControlLabel value="netbanking" control={<Radio />} label="Net Banking" />
           <FormControlLabel value="wallet" control={<Radio />} label="Wallet" />
+          <FormControlLabel value="cod" control={<Radio />} label="Cash on Delivery" />
+          <FormControlLabel value="paypal" control={<Radio />} label="PayPal" />
+          <FormControlLabel value="stripe" control={<Radio />} label="Stripe" />
         </RadioGroup>
       </Box>
 
@@ -147,6 +173,24 @@ function CheckoutPage() {
           <Grid item xs={12}><TextField label="Card number" value={payment.card} onChange={(e) => setPayment({ ...payment, card: e.target.value })} inputProps={{ inputMode: 'numeric' }} fullWidth required /></Grid>
           <Grid item xs={6}><TextField label="Expiry (MM/YY)" value={payment.exp} onChange={(e) => setPayment({ ...payment, exp: e.target.value })} placeholder="MM/YY" fullWidth required /></Grid>
           <Grid item xs={6}><TextField label="CVV" value={payment.cvv} onChange={(e) => setPayment({ ...payment, cvv: e.target.value })} inputProps={{ inputMode: 'numeric', maxLength: 4 }} fullWidth required /></Grid>
+        </Grid>
+      )}
+
+      {paymentMethod === 'cod' && (
+        <Alert severity="info">Pay by cash when your order is delivered.</Alert>
+      )}
+
+      {paymentMethod === 'paypal' && (
+        <Grid container spacing={2}>
+          <Grid item xs={12}><TextField label="PayPal Email" value={payment.paypalEmail} onChange={(e) => setPayment({ ...payment, paypalEmail: e.target.value })} type="email" fullWidth required /></Grid>
+          <Grid item xs={12}><Alert severity="info">You will be redirected to PayPal to authorize the payment in production.</Alert></Grid>
+        </Grid>
+      )}
+
+      {paymentMethod === 'stripe' && (
+        <Grid container spacing={2}>
+          <Grid item xs={12}><TextField label="Stripe Account Email" value={payment.stripeEmail} onChange={(e) => setPayment({ ...payment, stripeEmail: e.target.value })} type="email" fullWidth required /></Grid>
+          <Grid item xs={12}><Alert severity="info">In production, this step would open a Stripe Checkout session.</Alert></Grid>
         </Grid>
       )}
 

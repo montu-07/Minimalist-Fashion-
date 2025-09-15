@@ -14,11 +14,12 @@ function load() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw);
   } catch {}
+  const roles = ['admin', 'user', 'manager', 'support'];
   const seed = Array.from({ length: 24 }).map((_, i) => ({
     id: i + 1,
     name: `User ${i + 1}`,
     email: `user${i + 1}@example.com`,
-    role: i % 5 === 0 ? 'admin' : 'user',
+    role: roles[i % roles.length],
     status: i % 7 === 0 ? 'inactive' : 'active',
     avatar: '',
     createdAt: Date.now() - i * 86400000,
@@ -63,6 +64,24 @@ export function toggleUserStatus(id) {
   save(next);
   dispatchUpdated();
   return next.find((u) => u.id === id);
+}
+
+export function bulkRemoveUsers(ids = []) {
+  if (!Array.isArray(ids) || ids.length === 0) return getAllUsers();
+  const list = load();
+  const next = list.filter((u) => !ids.includes(u.id));
+  save(next);
+  dispatchUpdated();
+  return next;
+}
+
+export function setUsersStatus(ids = [], status = 'active') {
+  if (!Array.isArray(ids) || ids.length === 0) return getAllUsers();
+  const list = load();
+  const next = list.map((u) => (ids.includes(u.id) ? { ...u, status } : u));
+  save(next);
+  dispatchUpdated();
+  return next;
 }
 
 // Query with search, filters, pagination

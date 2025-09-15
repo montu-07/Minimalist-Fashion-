@@ -31,6 +31,7 @@ export default function AdminSidebar({ open, onClose }) {
     { to: '/admin/products', label: 'Products', icon: <InventoryIcon /> },
     { to: '/admin/orders', label: 'Orders', icon: <ReceiptIcon /> },
     { to: '/admin/users', label: 'Users', icon: <PeopleIcon /> },
+    { to: '/admin/recycle-bin', label: 'Recycle Bin', icon: <InventoryIcon /> },
     { to: '/admin/customize-home', label: 'Customize Home', icon: <DesignIcon /> },
     { to: '/admin/settings', label: 'Settings', icon: <SettingsIcon /> },
   ];

@@ -14,6 +14,8 @@ import herobanner from "../assests/images/herobanner.jpg";
 import collection from "../assests/images/collection.jpg";
 import Lifestyle from "../assests/images/Lifestyle Section.jpg";
 import { getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
+import BrandLogo from 'components/BrandLogo';
+import LookbookSlider from 'components/lookbook/LookbookSlider';
 
 const STORAGE_KEY = 'home:config';
 
@@ -46,7 +48,12 @@ function HomePage() {
     return all.filter((p) => set.has(p.id));
   }, [cfg.featuredProducts, all]);
 
-  const newArrivals = React.useMemo(() => all.slice(-4), [all]);
+  const newArrivals = React.useMemo(() => {
+    const tagged = all.filter((p) => Array.isArray(p.tags) && p.tags.includes('new'));
+    if (tagged.length) return tagged.slice(0, 8);
+    // Fallback: newest by createdAt or last added
+    return [...all].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)).slice(0, 8);
+  }, [all]);
   const bestSellers = React.useMemo(() => [...all].sort((a, b) => (b.rating || 0) - (a.rating || 0)).slice(0, 8), [all]);
   const discounts = React.useMemo(() => all.filter((p) => p.price <= 30).slice(0, 8), [all]);
 
@@ -97,7 +104,7 @@ function HomePage() {
       >
         <Box
           component="img"
-          src={herobanner}
+          src={cfg.heroImage || herobanner}
           alt="Hero"
           sx={{
             position: 'absolute',
@@ -163,6 +170,9 @@ function HomePage() {
           <Button component={Link} to="/products" variant="text">View all</Button>
         </Stack>
         {renderProducts(newArrivals)}
+        <Box sx={{ mt: 4 }}>
+          <LookbookSlider />
+        </Box>
       </Container>
 
       {/* Collection Banner */}
@@ -170,7 +180,7 @@ function HomePage() {
         <Box sx={{ position: 'relative', borderRadius: 3, overflow: 'hidden' }}>
           <Box
             component="img"
-            src={collection }
+            src={cfg.collectionImage || collection}
             alt="Collection"
             sx={{ width: '100%', height: { xs: 260, md: 360 }, objectFit: 'cover', filter: 'grayscale(12%)' }}
           />
@@ -215,8 +225,8 @@ function HomePage() {
       <Container maxWidth="lg" sx={{ py: 5 }}>
         <Grid container spacing={3}>
           <Grid item xs={12} md={3}>
-            <Typography variant="h4" sx={{ mb: 1 }}>Minimalist Fashion</Typography>
-            <Typography variant="body2" color="text.secondary">Modern essentials with a luxury touch.</Typography>
+            <BrandLogo size={24} withWordmark />
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>Modern essentials with a luxury touch.</Typography>
           </Grid>
           <Grid item xs={6} md={3}>
             <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>About Us</Typography>
