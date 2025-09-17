@@ -1,18 +1,21 @@
 import React from 'react';
+import { googleLogout } from '@react-oauth/google';
 
 export const AuthContext = React.createContext();
 
+// Helper function to get stored user
+export const getStoredUser = () => {
+  try {
+    const user = localStorage.getItem('user');
+    return user ? JSON.parse(user) : null;
+  } catch (error) {
+    console.error('Error parsing stored user:', error);
+    return null;
+  }
+};
+
 export function AuthProvider({ children }) {
-  const [user, setUser] = React.useState(() => {
-    try {
-      const raw = localStorage.getItem('auth:user');
-      if (raw) return JSON.parse(raw);
-      const sraw = sessionStorage.getItem('auth:user');
-      return sraw ? JSON.parse(sraw) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = React.useState(getStoredUser);
   const [token, setToken] = React.useState(() => {
     try {
       return (
@@ -80,21 +83,57 @@ export function AuthProvider({ children }) {
   };
 
   // Real OAuth profile/token persister
-  const oauthLogin = ({ id, name, email, avatar, provider, accessToken, remember = true }) => {
-    const u = { id, name, email, avatar: avatar || null, provider };
-    const t = accessToken || `jwt.${btoa(`${id}:${Date.now()}`)}.${Math.random().toString(36).slice(2)}`;
-    saveSession(u, t, remember);
-    return u;
+  const oauthLogin = async (provider, tokenResponse) => {
+    try {
+      // Fetch user info from Google's API
+      const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: {
+          Authorization: `Bearer ${tokenResponse.access_token}`,
+        },
+      });
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch user info');
+      }
+      
+      const userData = await res.json();
+      const user = {
+        id: userData.sub,
+        name: userData.name,
+        email: userData.email,
+        avatar: userData.picture,
+        provider,
+        accessToken: tokenResponse.access_token
+      };
+      
+      // Save user data to localStorage
+      localStorage.setItem('user', JSON.stringify(user));
+      
+      setUser(user);
+      return user;
+    } catch (error) {
+      console.error('OAuth login error:', error);
+      throw error;
+    }
   };
 
   const logout = () => {
+    // If user was logged in with Google, sign out from Google
+    if (user?.provider === 'google') {
+      googleLogout();
+    }
+    
+    // Clear all auth data
     setUser(null);
     try {
+      localStorage.removeItem('user');
       localStorage.removeItem('auth:user');
       sessionStorage.removeItem('auth:user');
       localStorage.removeItem('auth:token');
       sessionStorage.removeItem('auth:token');
-    } catch {}
+    } catch (error) {
+      console.error('Error during logout:', error);
+    }
   };
 
   const updateUser = (patch) => {

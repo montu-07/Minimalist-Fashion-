@@ -1,5 +1,6 @@
 import React from 'react';
 import Button from '@mui/material/Button';
+import Typography from '@mui/material/Typography';
 import GoogleIcon from '@mui/icons-material/Google';
 import CircularProgress from '@mui/material/CircularProgress';
 import Stack from '@mui/material/Stack';
@@ -11,42 +12,33 @@ import { useAuth } from 'state/AuthContext';
  * On success, fetches profile from Google UserInfo endpoint with the access token,
  * persists to AuthContext via oauthLogin, and calls onSuccess callback.
  */
-export default function GoogleLoginButton({ onSuccess }) {
+export default function GoogleLoginButton({ onSuccess, onError }) {
   const { oauthLogin } = useAuth();
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState('');
 
   const login = useGoogleLogin({
-    flow: 'implicit',
     onSuccess: async (tokenResponse) => {
       try {
         setLoading(true);
         setError('');
-        const { access_token: accessToken } = tokenResponse;
-        if (!accessToken) throw new Error('Missing access token');
-        // Fetch Google userinfo
-        const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        if (!res.ok) throw new Error('Failed to fetch Google profile');
-        const profile = await res.json();
-        const user = oauthLogin({
-          id: profile.sub,
-          name: profile.name || profile.given_name || 'Google User',
-          email: profile.email,
-          avatar: profile.picture,
-          provider: 'google',
-          accessToken,
-        });
-        onSuccess && onSuccess(user);
-      } catch (e) {
-        setError(e?.message || 'Google login failed');
+        // Use the oauthLogin function from AuthContext to handle the token
+        const user = await oauthLogin('google', tokenResponse);
+        onSuccess?.(user);
+      } catch (error) {
+        const errorMessage = error?.message || 'Failed to sign in with Google';
+        setError(errorMessage);
+        onError?.(errorMessage);
       } finally {
         setLoading(false);
       }
     },
-    onError: () => setError('Google login failed'),
-    scope: 'openid profile email',
+    onError: (error) => {
+      const errorMessage = error?.error_description || 'Google sign in was cancelled';
+      setError(errorMessage);
+      onError?.(errorMessage);
+    },
+    scope: 'profile email',
   });
 
   return (
@@ -55,14 +47,26 @@ export default function GoogleLoginButton({ onSuccess }) {
         variant="outlined"
         color="inherit"
         startIcon={loading ? <CircularProgress size={16} /> : <GoogleIcon />}
-        onClick={() => { setError(''); login(); }}
+        onClick={() => {
+          setError('');
+          login();
+        }}
         disabled={loading}
         fullWidth
+        sx={{
+          textTransform: 'none',
+          py: 1.5,
+          '&:hover': {
+            backgroundColor: 'action.hover',
+          },
+        }}
       >
         Continue with Google
       </Button>
       {error && (
-        <span role="alert" style={{ color: '#d32f2f', fontSize: 12 }}>{error}</span>
+        <Typography color="error" variant="caption" sx={{ mt: 0.5, display: 'block' }}>
+          {error}
+        </Typography>
       )}
     </Stack>
   );
