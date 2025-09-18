@@ -38,12 +38,18 @@ export function getAllUsers() {
 
 export function upsertUser(user) {
   const list = load();
+  const incoming = { ...user };
+  if (incoming.email) incoming.email = String(incoming.email).trim();
+  const now = Date.now();
+  if (incoming.password) incoming.passwordUpdatedAt = now;
   let next;
-  if (user.id && list.some((u) => u.id === user.id)) {
-    next = list.map((u) => (u.id === user.id ? { ...u, ...user } : u));
+  if (incoming.id && list.some((u) => u.id === incoming.id)) {
+    next = list.map((u) => (
+      u.id === incoming.id ? { ...u, ...incoming, updatedAt: now } : u
+    ));
   } else {
-    const id = user.id || Date.now();
-    next = [{ ...user, id, createdAt: Date.now() }, ...list];
+    const id = incoming.id || Date.now();
+    next = [{ ...incoming, id, createdAt: now, updatedAt: now }, ...list];
   }
   save(next);
   dispatchUpdated();
@@ -52,6 +58,14 @@ export function upsertUser(user) {
 
 export function removeUser(id) {
   const list = load();
+  const target = list.find((u) => u.id === id);
+  if (!target) return list;
+  if (target.role === 'admin') {
+    const admins = list.filter((u) => u.role === 'admin');
+    if (admins.length <= 1) {
+      throw new Error('Cannot delete the last admin account. Create another admin first.');
+    }
+  }
   const next = list.filter((u) => u.id !== id);
   save(next);
   dispatchUpdated();
@@ -69,6 +83,12 @@ export function toggleUserStatus(id) {
 export function bulkRemoveUsers(ids = []) {
   if (!Array.isArray(ids) || ids.length === 0) return getAllUsers();
   const list = load();
+  const admins = list.filter((u) => u.role === 'admin');
+  const adminIds = new Set(admins.map((a) => a.id));
+  const removingAdminCount = ids.reduce((acc, id) => acc + (adminIds.has(id) ? 1 : 0), 0);
+  if (admins.length - removingAdminCount <= 0) {
+    throw new Error('Bulk delete would remove the last admin. Adjust your selection.');
+  }
   const next = list.filter((u) => !ids.includes(u.id));
   save(next);
   dispatchUpdated();

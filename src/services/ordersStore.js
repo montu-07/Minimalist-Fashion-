@@ -25,6 +25,8 @@ export function getOrderById(id) {
   return readOrders().find((o) => String(o.id) === sid) || null;
 }
 
+const VALID_STATUSES = ['Pending','Packed','Shipped','Out for Delivery','Delivered','Cancelled'];
+
 export function createOrder({ items, address, delivery, paymentMethod, paymentMeta, totals, user }) {
   const order = {
     id: Date.now(),
@@ -35,7 +37,7 @@ export function createOrder({ items, address, delivery, paymentMethod, paymentMe
     delivery,
     payment: { method: paymentMethod, meta: paymentMeta || {} },
     totals,
-    status: 'Pending', // Pending -> Packed -> Shipped -> Delivered
+    status: 'Pending', // Pending -> Packed -> Shipped -> Out for Delivery -> Delivered | Cancelled
     timeline: [{ ts: Date.now(), status: 'Pending', note: 'Order placed' }],
     rma: null, // { type: 'refund'|'return'|'exchange', status: 'requested'|'approved'|'rejected'|'completed', note }
   };
@@ -48,7 +50,9 @@ export function updateOrderStatus(id, status, note) {
   const list = readOrders();
   const idx = list.findIndex((o) => String(o.id) === String(id));
   if (idx === -1) return null;
-  const next = { ...list[idx], status, timeline: [...list[idx].timeline, { ts: Date.now(), status, note: note || '' }] };
+  const cleanStatus = normalizeStatus(status);
+  if (!VALID_STATUSES.includes(cleanStatus)) return list[idx];
+  const next = { ...list[idx], status: cleanStatus, timeline: [...list[idx].timeline, { ts: Date.now(), status: cleanStatus, note: note || '' }] };
   list[idx] = next;
   writeOrders(list);
   return next;
@@ -78,4 +82,30 @@ export function completeRMA(id, status, note) {
 
 export function removeAllOrders() {
   writeOrders([]);
+}
+
+export function cancelOrder(id, note) {
+  return updateOrderStatus(id, 'Cancelled', note || 'Order cancelled by admin');
+}
+
+export function updateRMAStatus(id, rmaStatus, note) {
+  const list = readOrders();
+  const idx = list.findIndex((o) => String(o.id) === String(id));
+  if (idx === -1) return null;
+  const nextRMA = { ...(list[idx].rma || {}), status: rmaStatus, note: note || '', ts: Date.now() };
+  const next = { ...list[idx], rma: nextRMA };
+  list[idx] = next;
+  writeOrders(list);
+  return next;
+}
+
+function normalizeStatus(s) {
+  const x = String(s).trim().toLowerCase().replace(/_/g, ' ');
+  if (x === 'out for delivery') return 'Out for Delivery';
+  if (x === 'delivered') return 'Delivered';
+  if (x === 'shipped') return 'Shipped';
+  if (x === 'packed') return 'Packed';
+  if (x === 'pending') return 'Pending';
+  if (x === 'cancelled' || x === 'canceled') return 'Cancelled';
+  return s;
 }

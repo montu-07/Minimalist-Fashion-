@@ -35,6 +35,7 @@ import { useUI } from 'state/UIContext';
 import BrandLogo from 'components/BrandLogo';
 import { fetchSearchSuggestions, saveRecentSearch } from 'services/searchApi';
 import { useAuth } from 'state/AuthContext';
+import NotificationCenter from 'components/notifications/NotificationCenter';
 
 function Header() {
   const { items } = useCart();
@@ -106,6 +107,20 @@ function Header() {
             <MenuItem component={Link} to="/products?category=electronics" onClick={() => setCatEl(null)}>Electronics</MenuItem>
             <MenuItem component={Link} to="/products?category=Home" onClick={() => setCatEl(null)}>Home & Living</MenuItem>
           </Menu>
+          <Button
+            component={Link}
+            to="/track-order"
+            color="inherit"
+            sx={{
+              textTransform: 'none',
+              borderRadius: 2,
+              px: 1.5,
+              '&:hover': { bgcolor: (t) => alpha(t.palette.text.primary, 0.06), transform: 'translateY(-1px)' },
+              transition: 'all 150ms ease',
+            }}
+          >
+            Track Order
+          </Button>
         </Box>
         <Box sx={{ flex: 1, display: { xs: 'none', sm: 'flex' } }}>
           <Autocomplete
@@ -135,7 +150,7 @@ function Header() {
                     borderRadius: 2,
                     backgroundColor: (t) => alpha(t.palette.common.white, 0.15),
                     '&:hover': { backgroundColor: (t) => alpha(t.palette.common.white, 0.25) },
-                    '& fieldset': { borderColor: 'transparent' },
+                    '& fieldset': { borderColor: "lightgrey" },
                     color: 'inherit',
                   },
                 }}
@@ -168,14 +183,18 @@ function Header() {
         }}>
           {mode === 'light' ? <DarkModeIcon /> : <LightModeIcon />}
         </IconButton>
-        <IconButton color="inherit" component={Link} to="/wishlist" aria-label="wishlist" sx={{
-          transition: 'transform 120ms ease',
-          '&:hover': { transform: 'translateY(-1px)' },
-        }}>
-          <Badge badgeContent={wish.length} color="secondary">
-            <FavoriteIcon />
-          </Badge>
-        </IconButton>
+        <Tooltip title="Wishlist">
+          <IconButton component={Link} to="/wishlist" color="inherit" aria-label="Wishlist">
+            <Badge badgeContent={wish.length} color="error">
+              <FavoriteIcon />
+            </Badge>
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Notifications">
+          <Box>
+            <NotificationCenter />
+          </Box>
+        </Tooltip>
         <IconButton color="inherit" aria-label="cart" onClick={() => setMiniCartOpen(true)} sx={{
           transition: 'transform 120ms ease',
           '&:hover': { transform: 'translateY(-1px)' },

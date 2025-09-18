@@ -10,6 +10,7 @@ const PrivacyPolicyPage = React.lazy(() => import('../pages/policies/PrivacyPoli
 const ExchangePolicyPage = React.lazy(() => import('../pages/policies/ExchangePolicyPage'));
 const ShippingPolicyPage = React.lazy(() => import('../pages/policies/ShippingPolicyPage'));
 const TermsOfServicePage = React.lazy(() => import('../pages/policies/TermsOfServicePage'));
+const TrackOrderPage = React.lazy(() => import('../pages/TrackOrderPage'));
 
 const homeRoutes = [
   { path: '/', element: <HomePage /> },
@@ -21,6 +22,7 @@ const homeRoutes = [
   { path: '/policies/exchange', element: <ExchangePolicyPage /> },
   { path: '/policies/shipping', element: <ShippingPolicyPage /> },
   { path: '/policies/terms', element: <TermsOfServicePage /> },
+  { path: '/track-order', element: <TrackOrderPage /> },
 ];
 
 export default homeRoutes;

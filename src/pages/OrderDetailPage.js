@@ -18,8 +18,9 @@ import DialogActions from '@mui/material/DialogActions';
 import TextField from '@mui/material/TextField';
 import Alert from '@mui/material/Alert';
 import { getOrderById, updateOrderStatus, requestRMA } from 'services/ordersStore';
+import { useAuth } from 'state/AuthContext';
 
-const STEPS = ['Pending', 'Packed', 'Shipped', 'Delivered'];
+const STEPS = ['Pending', 'Packed', 'Shipped', 'Out for Delivery', 'Delivered'];
 
 export default function OrderDetailPage() {
   const { id } = useParams();
@@ -28,6 +29,8 @@ export default function OrderDetailPage() {
   const [rmaType, setRmaType] = React.useState('refund');
   const [rmaNote, setRmaNote] = React.useState('');
   const [error, setError] = React.useState('');
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
 
   const refresh = React.useCallback(() => setOrder(getOrderById(id)), [id]);
 
@@ -67,6 +70,7 @@ export default function OrderDetailPage() {
   };
 
   const doAdvance = () => {
+    if (!isAdmin) return;
     const idx = STEPS.indexOf(order.status);
     if (idx === -1 || idx === STEPS.length - 1) return;
     updateOrderStatus(order.id, STEPS[idx + 1]);
@@ -90,11 +94,18 @@ export default function OrderDetailPage() {
       </Stack>
 
       <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-        <Stepper activeStep={stepIndex} alternativeLabel>
-          {STEPS.map((s) => (
-            <Step key={s}><StepLabel>{s}</StepLabel></Step>
-          ))}
-        </Stepper>
+        {isAdmin ? (
+          <Stepper activeStep={stepIndex} alternativeLabel>
+            {STEPS.map((s) => (
+              <Step key={s}><StepLabel>{s}</StepLabel></Step>
+            ))}
+          </Stepper>
+        ) : (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <Typography variant="subtitle2">Status:</Typography>
+            <Chip label={order.status} color={order.status === 'Delivered' ? 'success' : 'default'} size="small" />
+          </Box>
+        )}
         <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }}>
           <Box sx={{ flex: 1 }}>
             <Typography variant="subtitle2">Shipping Address</Typography>
@@ -141,16 +152,17 @@ export default function OrderDetailPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} md={5}>
-          <Paper variant="outlined" sx={{ p: 2, mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ mb: 1 }}>Timeline</Typography>
-            {order.timeline.map((t, i) => (
-              <Typography key={i} variant="body2" color="text.secondary">{new Date(t.ts).toLocaleString()} — {t.status}{t.note ? ` • ${t.note}` : ''}</Typography>
-            ))}
-            {order.status !== 'Delivered' && (
-              <Button size="small" onClick={doAdvance} sx={{ mt: 1 }}>Advance Status (demo)</Button>
-            )}
-          </Paper>
-
+          {isAdmin && (
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle1" sx={{ mb: 1 }}>Timeline</Typography>
+              {order.timeline.map((t, i) => (
+                <Typography key={i} variant="body2" color="text.secondary">{new Date(t.ts).toLocaleString()} — {t.status}{t.note ? ` • ${t.note}` : ''}</Typography>
+              ))}
+              {order.status !== 'Delivered' && (
+                <Button size="small" onClick={doAdvance} sx={{ mt: 1 }}>Advance Status</Button>
+              )}
+            </Paper>
+          )}
           <Paper variant="outlined" sx={{ p: 2 }}>
             <Typography variant="subtitle1" sx={{ mb: 1 }}>Need help with this order?</Typography>
             <Stack direction="row" spacing={1}>

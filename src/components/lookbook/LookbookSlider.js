@@ -9,6 +9,7 @@ import ArrowForwardIosIcon from '@mui/icons-material/ArrowForwardIos';
 import { alpha } from '@mui/material/styles';
 import { useNavigate } from 'react-router-dom';
 import { ENV, API_ROUTES } from 'core/config/env';
+import lookbook1 from '../../assests/images/Lookbook1.jpeg';
 
 // Lightweight editorial lookbook slider with scroll-snap and programmatic controls
 // Usage: <LookbookSlider slides={[{ src, title, subtitle }]}/>
@@ -128,7 +129,7 @@ const navBtnSx = {
 
 const defaultSlides = [
   {
-    src: 'https://images.unsplash.com/photo-1503342217505-b0a15cf70489?q=80&w=1200&auto=format&fit=crop',
+    src: {lookbook1},
     title: 'Soft Layers',
     subtitle: 'Tonal knitwear and subtle textures',
     category: 'knitwear',
@@ -144,7 +145,7 @@ const defaultSlides = [
   {
     src: 'https://images.unsplash.com/photo-1515378791036-0648a3ef77b2?q=80&w=1200&auto=format&fit=crop',
     title: 'Monochrome Edit',
-    subtitle: 'Minimalist silhouettes in black and white',
+    subtitle: '4st silhouettes in black and white',
     to: '/products?category=apparel',
     ctaText: 'Explore apparel',
   },

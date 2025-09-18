@@ -7,6 +7,8 @@ import CircularProgress from '@mui/material/CircularProgress';
 import Layout from './components/layout/Layout';
 import appRoutes from './routes';
 import { AuthProvider } from './state/AuthContext';
+import { NotificationProvider } from './contexts/NotificationContext';
+import { OrderProvider } from './contexts/OrderContext';
 
 function AppContent() {
   const location = useLocation();
@@ -34,7 +36,11 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={process.env.REACT_APP_GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <AppContent />
+        <NotificationProvider>
+          <OrderProvider>
+            <AppContent />
+          </OrderProvider>
+        </NotificationProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

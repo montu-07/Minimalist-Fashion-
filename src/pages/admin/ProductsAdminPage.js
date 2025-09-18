@@ -17,16 +17,31 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import TableSortLabel from '@mui/material/TableSortLabel';
 import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
+import Divider from '@mui/material/Divider';
+import Radio from '@mui/material/Radio';
+import RadioGroup from '@mui/material/RadioGroup';
+import FormControlLabel from '@mui/material/FormControlLabel';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackIosNew';
+import ArrowForwardIcon from '@mui/icons-material/ArrowForwardIos';
 import { getAllProducts, upsertProduct, removeProduct as storeRemove } from 'services/productsStore';
+import BulkProductUploadDialog from 'components/admin/BulkProductUploadDialog';
 
 export default function ProductsAdminPage() {
   const [q, setQ] = React.useState('');
   const [rows, setRows] = React.useState(getAllProducts().slice(0, 50));
   const [open, setOpen] = React.useState(false);
-  const [form, setForm] = React.useState({ id: '', title: '', price: '', brand: '', category: '', image: '' });
+  const [form, setForm] = React.useState({ 
+    id: '', title: '', price: '', brand: '', category: '', categoriesText: '', 
+    images: [], image: '', description: '', stock: '', sku: '', 
+    specs: [{ key: '', value: '' }]
+  });
+  const [errors, setErrors] = React.useState({});
+  const [primaryImageIndex, setPrimaryImageIndex] = React.useState(0);
   const [confirm, setConfirm] = React.useState({ open: false, row: null });
   const [orderBy, setOrderBy] = React.useState('title');
   const [order, setOrder] = React.useState('asc'); // 'asc' | 'desc'
+  const [bulkOpen, setBulkOpen] = React.useState(false);
 
   const filtered = rows.filter(r => r.title.toLowerCase().includes(q.toLowerCase()));
   const comparator = React.useCallback((a, b) => {
@@ -48,21 +63,78 @@ export default function ProductsAdminPage() {
   };
 
   const openCreate = () => {
-    setForm({ id: '', title: '', price: '', brand: '', category: '', image: '' });
+    setForm({ id: '', title: '', price: '', brand: '', category: '', categoriesText: '', images: [], image: '', description: '', stock: '', sku: '', specs: [{ key: '', value: '' }] });
+    setErrors({});
+    setPrimaryImageIndex(0);
     setOpen(true);
   };
 
   const save = () => {
-    if (!form.title.trim() || !form.price) return;
+    // validations
+    const nextErr = {};
+    if (!form.title.trim()) nextErr.title = 'Title is required';
+    if (form.price === '' || isNaN(Number(form.price))) nextErr.price = 'Enter a valid price';
+    if (form.stock !== '' && isNaN(Number(form.stock))) nextErr.stock = 'Enter a valid stock number';
+    const sku = (form.sku || '').trim();
+    if (sku) {
+      const exists = getAllProducts().some((p) => String(p.sku || '').toLowerCase() === sku.toLowerCase() && String(p.id) !== String(form.id || ''));
+      if (exists) nextErr.sku = 'SKU must be unique';
+    }
+    setErrors(nextErr);
+    if (Object.keys(nextErr).length) return;
     const id = form.id || Date.now();
-    const next = upsertProduct({ ...form, id, price: Number(form.price) });
+    // categories from categoriesText (comma/pipe separated) -> array
+    const categories = (form.categoriesText || form.category || '')
+      .split(/[,|]/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    const images = Array.isArray(form.images) && form.images.length
+      ? form.images
+      : (form.image ? [form.image] : []);
+    // normalize specs: only non-empty
+    const specs = (form.specs || []).filter((s) => s.key && s.value);
+    const primaryIdx = Math.min(Math.max(primaryImageIndex, 0), Math.max(images.length - 1, 0));
+    const payload = {
+      id,
+      title: form.title,
+      price: Number(form.price),
+      brand: form.brand || '',
+      category: categories[0] || form.category || '',
+      categories,
+      images,
+      image: images[primaryIdx] || images[0] || '',
+      description: form.description || '',
+      stock: form.stock !== '' ? Number(form.stock) : undefined,
+      sku: form.sku || '',
+      specs,
+    };
+    upsertProduct(payload);
     // Refresh from store to reflect latest state
     setRows(getAllProducts().slice(0, 50));
     setOpen(false);
   };
 
   const edit = (r) => {
-    setForm({ id: r.id, title: r.title, price: r.price, brand: r.brand || '', category: r.category || '', image: r.image || '' });
+    const categories = r.categories || (r.category ? [r.category] : []);
+    const images = r.images || (r.image ? [r.image] : []);
+    const specs = Array.isArray(r.specs) && r.specs.length ? r.specs : [{ key: '', value: '' }];
+    setForm({ 
+      id: r.id, 
+      title: r.title, 
+      price: r.price, 
+      brand: r.brand || '', 
+      category: r.category || '', 
+      categoriesText: categories.join(', '),
+      images, 
+      image: r.image || '', 
+      description: r.description || '', 
+      stock: r.stock ?? '',
+      sku: r.sku || '',
+      specs,
+    });
+    const idx = Math.max(0, images.findIndex((img) => img === (r.image || '')));
+    setPrimaryImageIndex(idx === -1 ? 0 : idx);
+    setErrors({});
     setOpen(true);
   };
 
@@ -72,11 +144,31 @@ export default function ProductsAdminPage() {
   };
 
   const onFile = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setForm((f) => ({ ...f, image: reader.result }));
-    reader.readAsDataURL(file);
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    const readers = files.map((file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.readAsDataURL(file);
+    }));
+    Promise.all(readers).then((results) => {
+      setForm((f) => ({ ...f, images: [...(f.images || []), ...results] }));
+    });
+  };
+
+  const moveImage = (from, to) => {
+    setForm((f) => {
+      const imgs = [...(f.images || [])];
+      if (to < 0 || to >= imgs.length) return f;
+      const [it] = imgs.splice(from, 1);
+      imgs.splice(to, 0, it);
+      let nextPrimary = primaryImageIndex;
+      if (from === primaryImageIndex) nextPrimary = to;
+      else if (from < primaryImageIndex && to >= primaryImageIndex) nextPrimary -= 1;
+      else if (from > primaryImageIndex && to <= primaryImageIndex) nextPrimary += 1;
+      setPrimaryImageIndex(Math.max(0, Math.min(nextPrimary, imgs.length - 1)));
+      return { ...f, images: imgs };
+    });
   };
 
   return (
@@ -88,6 +180,7 @@ export default function ProductsAdminPage() {
             <TextField size="small" placeholder="Search products in this table" value={q} onChange={e => setQ(e.target.value)} />
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>This search filters the products table only.</Typography>
           </Box>
+          <Button variant="outlined" onClick={() => setBulkOpen(true)}>Bulk Upload</Button>
           <Button variant="contained" onClick={openCreate}>New Product</Button>
         </Stack>
       </Stack>
@@ -105,6 +198,7 @@ export default function ProductsAdminPage() {
               <TableCell sortDirection={orderBy === 'category' ? order : false}>
                 <TableSortLabel active={orderBy === 'category'} direction={order} onClick={() => handleSort('category')}>Category</TableSortLabel>
               </TableCell>
+              <TableCell align="right" width={100}>Stock</TableCell>
               <TableCell align="right" width={120} sortDirection={orderBy === 'price' ? order : false}>
                 <TableSortLabel active={orderBy === 'price'} direction={order} onClick={() => handleSort('price')}>Price</TableSortLabel>
               </TableCell>
@@ -140,6 +234,16 @@ export default function ProductsAdminPage() {
                 <TableCell align="right">
                   <TextField
                     variant="standard"
+                    value={r.stock ?? ''}
+                    onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, stock: e.target.value } : x))}
+                    onBlur={() => upsertProduct(rows.find(x => x.id === r.id))}
+                    inputProps={{ inputMode: 'numeric', style: { textAlign: 'right' }, 'aria-label': 'stock' }}
+                    placeholder="0"
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <TextField
+                    variant="standard"
                     value={r.price}
                     onChange={(e) => setRows((prev) => prev.map((x) => x.id === r.id ? { ...x, price: e.target.value } : x))}
                     onBlur={() => upsertProduct(rows.find(x => x.id === r.id))}
@@ -158,20 +262,55 @@ export default function ProductsAdminPage() {
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={() => setOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>{form.id ? 'Edit Product' : 'New Product'}</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
-            <TextField label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} fullWidth />
-            <TextField label="Brand" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} fullWidth />
-            <TextField label="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} fullWidth />
-            <TextField label="Price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} fullWidth />
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Box component="img" src={form.image || undefined} alt="preview" sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1, bgcolor: 'action.hover' }} />
-              <Button component="label" variant="outlined">
-                Upload Image
-                <input type="file" accept="image/*" hidden onChange={onFile} />
-              </Button>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField label="Title" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} fullWidth error={!!errors.title} helperText={errors.title} />
+              <TextField label="SKU" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} sx={{ minWidth: 200 }} error={!!errors.sku} helperText={errors.sku} />
+            </Stack>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField label="Brand" value={form.brand} onChange={e => setForm({ ...form, brand: e.target.value })} fullWidth />
+              <TextField label="Category (primary)" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} fullWidth />
+            </Stack>
+            <TextField label="Categories (comma or | separated)" value={form.categoriesText} onChange={e => setForm({ ...form, categoriesText: e.target.value })} fullWidth />
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+              <TextField label="Price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} fullWidth error={!!errors.price} helperText={errors.price} />
+              <TextField label="Stock" type="number" value={form.stock} onChange={e => setForm({ ...form, stock: e.target.value })} fullWidth error={!!errors.stock} helperText={errors.stock} />
+            </Stack>
+            <TextField label="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} fullWidth multiline minRows={3} />
+
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2">Images</Typography>
+            <Stack direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap">
+              {(form.images || []).map((img, idx) => (
+                <Box key={idx} sx={{ position: 'relative', mr: 1, mb: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                  <Box component="img" src={img} alt={`img-${idx}`} sx={{ width: 120, height: 120, objectFit: 'cover', borderRadius: 1, display: 'block' }} />
+                  <Stack direction="row" spacing={0.5} justifyContent="center" sx={{ mt: 0.5 }}>
+                    <IconButton size="small" onClick={() => moveImage(idx, idx - 1)} aria-label="move-left"><ArrowBackIcon fontSize="inherit" /></IconButton>
+                    <IconButton size="small" onClick={() => moveImage(idx, idx + 1)} aria-label="move-right"><ArrowForwardIcon fontSize="inherit" /></IconButton>
+                  </Stack>
+                  <FormControlLabel control={<Radio checked={primaryImageIndex === idx} onChange={() => setPrimaryImageIndex(idx)} />} label={primaryImageIndex === idx ? 'Primary' : 'Set Primary'} />
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Button size="small" color="error" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}>Remove</Button>
+                  </Box>
+                </Box>
+              ))}
+              <Button component="label" variant="outlined">Upload Images<input type="file" accept="image/*" hidden multiple onChange={onFile} /></Button>
+            </Stack>
+
+            <Divider sx={{ my: 1 }} />
+            <Typography variant="subtitle2">Specifications</Typography>
+            <Stack spacing={1}>
+              {(form.specs || []).map((s, i) => (
+                <Stack key={i} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'center' }}>
+                  <TextField label="Key" value={s.key} onChange={(e) => setForm((f) => ({ ...f, specs: f.specs.map((x, ix) => ix === i ? { ...x, key: e.target.value } : x) }))} fullWidth />
+                  <TextField label="Value" value={s.value} onChange={(e) => setForm((f) => ({ ...f, specs: f.specs.map((x, ix) => ix === i ? { ...x, value: e.target.value } : x) }))} fullWidth />
+                  <Button color="error" onClick={() => setForm((f) => ({ ...f, specs: f.specs.filter((_, ix) => ix !== i) }))}>Remove</Button>
+                </Stack>
+              ))}
+              <Button onClick={() => setForm((f) => ({ ...f, specs: [...(f.specs || []), { key: '', value: '' }] }))} variant="outlined" size="small">Add Specification</Button>
             </Stack>
           </Stack>
         </DialogContent>
@@ -192,6 +331,13 @@ export default function ProductsAdminPage() {
           <Button color="error" variant="contained" onClick={() => { remove(confirm.row.id); setConfirm({ open: false, row: null }); }}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      <BulkProductUploadDialog 
+        open={bulkOpen} 
+        onClose={() => setBulkOpen(false)} 
+        onImported={() => setRows(getAllProducts().slice(0, 50))}
+      />
     </Box>
   );
 }
