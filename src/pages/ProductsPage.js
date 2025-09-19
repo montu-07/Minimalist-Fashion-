@@ -26,6 +26,8 @@ import { useCart } from 'state/CartContext';
 import { fetchProducts, fetchFacets } from 'services/productsApi';
 import FilterSidebar from 'components/filters/FilterSidebar';
 import { getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
+import { trackEvent, trackProductImpressions } from 'services/recommendations';
 
 function ProductCard({ product, onAdd, onQuick }) {
   return (
@@ -163,6 +165,11 @@ function ProductsPage() {
       setItems(res.items);
       setTotalPages(res.totalPages);
       setLoading(false);
+      try {
+        if (res.items && res.items.length) {
+          trackProductImpressions(res.items.map((x) => x.id));
+        }
+      } catch {}
     });
     return () => { ignore = true; };
   }, [q, JSON.stringify(filters), sort, page, dataVersion]);
@@ -176,6 +183,18 @@ function ProductsPage() {
   React.useEffect(() => {
     fetchFacets().then((f) => setAvailable({ categories: f.categories, brands: f.brands }));
   }, []);
+
+  // Track category and search signals
+  React.useEffect(() => {
+    if (canonicalCategory) {
+      try { trackEvent({ type: 'category_view', category: canonicalCategory }); } catch {}
+    }
+  }, [canonicalCategory]);
+  React.useEffect(() => {
+    if ((q || '').trim()) {
+      try { trackEvent({ type: 'search', meta: { q: (q || '').trim() } }); } catch {}
+    }
+  }, [q]);
 
   // Keep filters in sync with category from URL query (e.g., /products?category=Fashion)
   React.useEffect(() => {
@@ -223,7 +242,11 @@ function ProductsPage() {
                 </Box>
               </Card>
             ) : (
-              <ProductCard product={p} onAdd={(prod) => addItem(prod, 1)} onQuick={(prod) => setQuick(prod)} />
+              <ProductCard 
+                product={p} 
+                onAdd={(prod) => { addItem(prod, 1); trackEvent({ type: 'add_to_cart', productId: prod.id, category: prod.category }); }} 
+                onQuick={(prod) => { setQuick(prod); trackEvent({ type: 'quick_view', productId: prod.id, category: prod.category }); }} 
+              />
             )}
           </Grid>
         ))}
@@ -261,6 +284,11 @@ function ProductsPage() {
       <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
         <Pagination count={totalPages} page={page} onChange={(_, v) => setPage(v)} color="primary" />
       </Box>
+
+      {/* Recommendations */}
+      {!loading && items.length > 0 && (
+        <RecommendationsRail excludeIds={items.map(i => i.id)} boost={{ categories: (filters.categories || []) }} />
+      )}
     </Box>
   );
 }

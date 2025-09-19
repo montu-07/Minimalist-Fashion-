@@ -5,6 +5,7 @@ import Button from '@mui/material/Button';
 import Divider from '@mui/material/Divider';
 import { useCart } from '../state/CartContext';
 import { useNavigate } from 'react-router-dom';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
 
 function CartPage() {
   const { items, removeItem, updateQty, subtotal, clear } = useCart();
@@ -38,6 +39,15 @@ function CartPage() {
               <Button onClick={clear}>Clear</Button>
               <Button variant="contained" onClick={() => navigate('/checkout')}>Checkout</Button>
             </Box>
+          </Box>
+          {/* Cross-sell recommendations */}
+          <Box sx={{ mt: 4 }}>
+            <RecommendationsRail
+              title="You may also like"
+              excludeIds={items.map(i => i.product.id)}
+              boost={{ categories: Array.from(new Set(items.map(i => i.product.category).filter(Boolean))) }}
+              limit={8}
+            />
           </Box>
         </>
       )}

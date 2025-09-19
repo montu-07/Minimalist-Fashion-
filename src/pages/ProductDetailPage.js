@@ -37,6 +37,8 @@ import { getAllProducts } from 'services/productsStore';
 import { useCart } from 'state/CartContext';
 import { useWishlist } from 'state/WishlistContext';
 import { getGalleryImages, getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
+import { trackEvent } from 'services/recommendations';
 
 function ProductDetailPage() {
   const { id } = useParams();
@@ -65,6 +67,13 @@ function ProductDetailPage() {
     setImages(getGalleryImages(product, 5, { w: 800, h: 600 }));
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
   }, [routeId, product?.id]);
+
+  // Track PDP view for recommendations
+  React.useEffect(() => {
+    if (product?.id) {
+      try { trackEvent({ type: 'detail_view', productId: product.id, category: product.category }); } catch {}
+    }
+  }, [product?.id]);
   const specs = React.useMemo(() => ([
     { label: 'Brand', value: product?.brand || '-' },
     { label: 'Category', value: product?.category || '-' },
@@ -151,6 +160,7 @@ function ProductDetailPage() {
           ))}
         </Stack>
       </Grid>
+      
       <Grid item xs={12} md={6}>
         <Typography variant="h5" gutterBottom>{product.title}</Typography>
         <Rating value={product.rating} precision={0.5} readOnly sx={{ mb: 1 }} />
@@ -175,7 +185,7 @@ function ProductDetailPage() {
           </Box>
         </Stack>
         <Stack direction="row" spacing={2}>
-          <Button variant="contained" onClick={() => addItem({ ...product, variant: { color, size } }, 1)}>Add to Cart</Button>
+          <Button variant="contained" onClick={() => { addItem({ ...product, variant: { color, size } }, 1); try { trackEvent({ type: 'add_to_cart', productId: product.id, category: product.category }); } catch {} }}>Add to Cart</Button>
           <Button
             variant={wishContains(product.id) ? 'contained' : 'outlined'}
             color={wishContains(product.id) ? 'secondary' : 'primary'}
@@ -184,6 +194,15 @@ function ProductDetailPage() {
             {wishContains(product.id) ? 'In Wishlist' : 'Add to Wishlist'}
           </Button>
         </Stack>
+      </Grid>
+
+      <Grid item xs={12}>
+        <RecommendationsRail
+          title="Customers also bought"
+          excludeIds={[product.id]}
+          boost={{ categories: [product.category, ...(product.categories || [])].filter(Boolean) }}
+          limit={8}
+        />
       </Grid>
       {/* Product details: Description + Specifications */}
       <Grid item xs={12}>

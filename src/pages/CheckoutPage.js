@@ -22,6 +22,8 @@ import { useCart } from 'state/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { createOrder } from 'services/ordersStore';
 import { useAuth } from 'state/AuthContext';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
+import { trackEvent } from 'services/recommendations';
 
 const steps = ['Address', 'Delivery', 'Payment', 'Review'];
 
@@ -120,6 +122,10 @@ function CheckoutPage() {
     };
     const totals = { subtotal, shipping: shippingCost, total };
     const order = createOrder({ items, address, delivery, paymentMethod, paymentMeta, totals, user });
+    try {
+      // Track purchase for each product
+      items.forEach((i) => trackEvent({ type: 'purchase', productId: i.product.id, category: i.product.category }));
+    } catch {}
     clear();
     setActiveStep(steps.length);
     navigate(`/orders/${order.id}`);
@@ -280,9 +286,11 @@ function CheckoutPage() {
             {activeStep === 2 && PaymentForm}
             {activeStep === 3 && Review}
             {activeStep >= steps.length && (
-              <Stack spacing={1}>
+              <Stack spacing={2}>
                 <Typography variant="h6">Thank you! 🎉</Typography>
                 <Typography color="text.secondary">Your order has been placed. A confirmation email will arrive shortly.</Typography>
+                <Divider />
+                <RecommendationsRail title="You might also like" limit={8} />
               </Stack>
             )}
           </Paper>
