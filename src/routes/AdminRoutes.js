@@ -9,6 +9,7 @@ const UsersAdminPage = React.lazy(() => import('../pages/admin/UsersAdminPage'))
 const SettingsAdminPage = React.lazy(() => import('../pages/admin/SettingsAdminPage'));
 const CustomizeHomePage = React.lazy(() => import('../pages/admin/CustomizeHomePage'));
 const RecycleBinPage = React.lazy(() => import('../pages/admin/RecycleBinPage'));
+const SupportInboxPage = React.lazy(() => import('../pages/admin/SupportInboxPage'));
 const AdminLoginPage = React.lazy(() => import('../pages/admin/AdminLoginPage'));
 const RequireAdmin = React.lazy(() => import('./guards/RequireAdmin'));
 const NotFoundPage = React.lazy(() => import('../pages/NotFoundPage'));
@@ -27,6 +28,7 @@ const adminRoutes = [
       { path: 'products', element: <ProductsAdminPage /> },
       { path: 'orders', element: <OrdersAdminPage /> },
       { path: 'users', element: <UsersAdminPage /> },
+      { path: 'support', element: <SupportInboxPage /> },
       { path: 'recycle-bin', element: <RecycleBinPage /> },
       { path: 'settings', element: <SettingsAdminPage /> },
       { path: 'customize-home', element: <CustomizeHomePage /> },

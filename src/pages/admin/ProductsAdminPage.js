@@ -75,6 +75,8 @@ export default function ProductsAdminPage() {
     if (!form.title.trim()) nextErr.title = 'Title is required';
     if (form.price === '' || isNaN(Number(form.price))) nextErr.price = 'Enter a valid price';
     if (form.stock !== '' && isNaN(Number(form.stock))) nextErr.stock = 'Enter a valid stock number';
+    if (!Array.isArray(form.images) || form.images.length < 1) nextErr.images = 'Please upload at least 1 image (max 5).';
+    if ((form.images || []).length > 5) nextErr.images = 'You can upload up to 5 images.';
     const sku = (form.sku || '').trim();
     if (sku) {
       const exists = getAllProducts().some((p) => String(p.sku || '').toLowerCase() === sku.toLowerCase() && String(p.id) !== String(form.id || ''));
@@ -146,13 +148,42 @@ export default function ProductsAdminPage() {
   const onFile = (e) => {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
-    const readers = files.map((file) => new Promise((resolve) => {
+    // Enforce max 5 images
+    setErrors((prev) => {
+      const curr = Array.isArray(form.images) ? form.images.length : 0;
+      const remaining = Math.max(0, 5 - curr);
+      let useFiles = files;
+      if (files.length > remaining) {
+        useFiles = files.slice(0, remaining);
+        return { ...prev, images: 'You can upload up to 5 images. Extra files were ignored.' };
+      }
+      return prev;
+    });
+    const currLen = Array.isArray(form.images) ? form.images.length : 0;
+    const remaining = Math.max(0, 5 - currLen);
+    const selected = files.slice(0, remaining);
+    if (!selected.length) return;
+    const readers = selected.map((file) => new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result);
       reader.readAsDataURL(file);
     }));
     Promise.all(readers).then((results) => {
       setForm((f) => ({ ...f, images: [...(f.images || []), ...results] }));
+    });
+  };
+
+  const removeImage = (idx) => {
+    setForm((f) => {
+      const imgs = [...(f.images || [])];
+      if (idx < 0 || idx >= imgs.length) return f;
+      imgs.splice(idx, 1);
+      // Adjust primary index
+      let nextPrimary = primaryImageIndex;
+      if (idx === primaryImageIndex) nextPrimary = 0;
+      else if (idx < primaryImageIndex) nextPrimary = Math.max(0, primaryImageIndex - 1);
+      setPrimaryImageIndex(Math.max(0, Math.min(nextPrimary, imgs.length - 1)));
+      return { ...f, images: imgs };
     });
   };
 
@@ -283,6 +314,9 @@ export default function ProductsAdminPage() {
 
             <Divider sx={{ my: 1 }} />
             <Typography variant="subtitle2">Images</Typography>
+            <Typography variant="caption" color={errors.images ? 'error' : 'text.secondary'} sx={{ mb: 1, display: 'block' }}>
+              Minimum 1 and maximum 5 images. Drag arrows to reorder; select Primary. {errors.images ? `(${errors.images})` : ''}
+            </Typography>
             <Stack direction="row" spacing={1} alignItems="flex-start" flexWrap="wrap">
               {(form.images || []).map((img, idx) => (
                 <Box key={idx} sx={{ position: 'relative', mr: 1, mb: 1, p: 1, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
@@ -293,11 +327,11 @@ export default function ProductsAdminPage() {
                   </Stack>
                   <FormControlLabel control={<Radio checked={primaryImageIndex === idx} onChange={() => setPrimaryImageIndex(idx)} />} label={primaryImageIndex === idx ? 'Primary' : 'Set Primary'} />
                   <Box sx={{ textAlign: 'center' }}>
-                    <Button size="small" color="error" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((_, i) => i !== idx) }))}>Remove</Button>
+                    <Button size="small" color="error" onClick={() => removeImage(idx)}>Remove</Button>
                   </Box>
                 </Box>
               ))}
-              <Button component="label" variant="outlined">Upload Images<input type="file" accept="image/*" hidden multiple onChange={onFile} /></Button>
+              <Button component="label" variant="outlined" disabled={(form.images || []).length >= 5}>Upload Images<input type="file" accept="image/*" hidden multiple onChange={onFile} /></Button>
             </Stack>
 
             <Divider sx={{ my: 1 }} />

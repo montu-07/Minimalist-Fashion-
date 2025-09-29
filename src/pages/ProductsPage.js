@@ -28,8 +28,11 @@ import FilterSidebar from 'components/filters/FilterSidebar';
 import { getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
 import RecommendationsRail from 'components/recommendations/RecommendationsRail';
 import { trackEvent, trackProductImpressions } from 'services/recommendations';
+import Chip from '@mui/material/Chip';
+import { useAuth } from 'state/AuthContext';
+import { isMember } from 'services/memberships';
 
-function ProductCard({ product, onAdd, onQuick }) {
+function ProductCard({ product, onAdd, onQuick, locked }) {
   return (
     <Card
       sx={{
@@ -53,6 +56,14 @@ function ProductCard({ product, onAdd, onQuick }) {
           onError={(e) => onImgErrorSwap(e, product, { w: 600, h: 600 })}
           sx={{ aspectRatio: '1 / 1', bgcolor: 'action.hover', objectFit: 'cover', width: '100%' }}
         />
+        {(product.exclusive || product.earlyAccess || (Array.isArray(product.tags) && (product.tags.includes('exclusive') || product.tags.includes('earlyAccess')))) && (
+          <Chip
+            size="small"
+            label={product.exclusive || (product.tags||[]).includes('exclusive') ? 'Member Exclusive' : 'Early Access'}
+            color={(product.exclusive || (product.tags||[]).includes('exclusive')) ? 'secondary' : 'primary'}
+            sx={{ position: 'absolute', top: 8, left: 8 }}
+          />
+        )}
         <Box
           className="overlay"
           sx={{
@@ -61,7 +72,7 @@ function ProductCard({ product, onAdd, onQuick }) {
             opacity: 0, transform: 'translateY(10px)', transition: 'all .25s ease',
           }}
         >
-          <Button size="small" variant="contained" onClick={() => onAdd(product)} sx={{ flex: 1 }}>Quick Add</Button>
+          <Button size="small" variant="contained" onClick={() => onAdd(product)} sx={{ flex: 1 }} disabled={locked}>{locked ? 'Members Only' : 'Quick Add'}</Button>
           <Button size="small" variant="outlined" color="secondary" onClick={() => onQuick(product)} sx={{ flex: 1 }}>Quick View</Button>
         </Box>
       </Box>
@@ -71,7 +82,7 @@ function ProductCard({ product, onAdd, onQuick }) {
       </CardContent>
       <CardActions>
         <Button component={Link} to={`/product/${product.id}`} size="small">View</Button>
-        <Button onClick={() => onAdd(product)} size="small" variant="contained">Add to Cart</Button>
+        <Button onClick={() => onAdd(product)} size="small" variant="contained" disabled={locked}>{locked ? 'Members Only' : 'Add to Cart'}</Button>
       </CardActions>
     </Card>
   );
@@ -79,6 +90,7 @@ function ProductCard({ product, onAdd, onQuick }) {
 
 function ProductsPage() {
   const { addItem } = useCart();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const [loading, setLoading] = React.useState(true);
   const [page, setPage] = React.useState(1);
@@ -243,7 +255,8 @@ function ProductsPage() {
               </Card>
             ) : (
               <ProductCard 
-                product={p} 
+                product={p}
+                locked={((p.exclusive || (p.tags||[]).includes('exclusive')) || (p.earlyAccess || (p.tags||[]).includes('earlyAccess'))) && !isMember(user)}
                 onAdd={(prod) => { addItem(prod, 1); trackEvent({ type: 'add_to_cart', productId: prod.id, category: prod.category }); }} 
                 onQuick={(prod) => { setQuick(prod); trackEvent({ type: 'quick_view', productId: prod.id, category: prod.category }); }} 
               />
@@ -286,9 +299,9 @@ function ProductsPage() {
       </Box>
 
       {/* Recommendations */}
-      {!loading && items.length > 0 && (
+      {/* {!loading && items.length > 0 && (
         <RecommendationsRail excludeIds={items.map(i => i.id)} boost={{ categories: (filters.categories || []) }} />
-      )}
+      )} */}
     </Box>
   );
 }

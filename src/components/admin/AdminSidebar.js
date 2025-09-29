@@ -60,7 +60,7 @@ export default function AdminSidebar({ open, onClose }) {
         }}
       >
         <Box sx={{ px: 2, py: 2 }}>
-          <Typography variant="h6" sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Minimalist Fashion Admin</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: "unset" }}>Minimalist Fashion Admin</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'block', md: 'none' } }}>Manage store</Typography>
         </Box>
         <Divider />

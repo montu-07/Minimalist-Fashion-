@@ -43,6 +43,19 @@ function writeCustom(list) {
   }
 }
 
+// Attempt to write and return true/false depending on success
+function writeCustomTry(list) {
+  try {
+    localStorage.setItem(LS_KEY, JSON.stringify(list || []));
+    if (typeof window !== 'undefined' && window.dispatchEvent) {
+      window.dispatchEvent(new CustomEvent('products:updated'));
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function readDeleted() {
   try {
     const raw = localStorage.getItem(LS_DELETED_KEY);
@@ -80,10 +93,34 @@ export function getAllProducts() {
 export function upsertProduct(product) {
   const list = readCustom();
   const id = product.id ?? Date.now();
-  const next = { ...product, id };
+  const now = Date.now();
+  const next = { createdAt: product.createdAt ?? now, updatedAt: now, ...product, id };
   const exists = list.some((p) => String(p.id) === String(id));
-  const updated = exists ? list.map((p) => (String(p.id) === String(id) ? next : p)) : [next, ...list];
-  writeCustom(updated);
+  let updated = exists ? list.map((p) => (String(p.id) === String(id) ? { ...p, ...next, updatedAt: now } : p)) : [next, ...list];
+
+  // Try to write; if quota exceeded, evict oldest items until it fits (prefer keeping the new item)
+  if (!writeCustomTry(updated)) {
+    // Sort by createdAt ascending (oldest first); fallback to list order
+    const copy = [...updated];
+    const hasCreated = copy.every((p) => typeof p.createdAt === 'number');
+    const sorter = (a, b) => {
+      if (hasCreated) return (a.createdAt || 0) - (b.createdAt || 0);
+      return 0; // keep current order where newest is at front
+    };
+    copy.sort(sorter);
+    // Repeatedly remove oldest non-protected item until write succeeds
+    while (copy.length > 0) {
+      const idx = copy.findIndex((p) => String(p.id) !== String(id));
+      if (idx === -1) break; // only the new/protected item remains
+      copy.splice(idx, 1);
+      if (writeCustomTry(copy)) {
+        return next;
+      }
+    }
+    // If we reach here, attempt to at least store the new item alone
+    writeCustomTry([next]);
+    return next;
+  }
   return next;
 }
 

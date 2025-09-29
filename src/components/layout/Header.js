@@ -172,7 +172,6 @@ function Header() {
             </IconButton>
             <Menu anchorEl={menuEl} open={Boolean(menuEl)} onClose={() => setMenuEl(null)}>
               <MenuItem component={Link} to="/profile" onClick={() => setMenuEl(null)}>Profile</MenuItem>
-              <MenuItem component={Link} to="/admin" onClick={() => setMenuEl(null)}>Admin</MenuItem>
               <MenuItem onClick={() => { setMenuEl(null); logout(); navigate('/'); }}>Logout</MenuItem>
             </Menu>
           </>
@@ -261,11 +260,7 @@ function Header() {
                     <ListItemText primary="Profile" />
                   </ListItemButton>
                 </ListItem>
-                <ListItem disablePadding>
-                  <ListItemButton component={Link} to="/admin" onClick={() => setMobileOpen(false)}>
-                    <ListItemText primary="Admin" />
-                  </ListItemButton>
-                </ListItem>
+                
                 <ListItem disablePadding>
                   <ListItemButton onClick={() => { setMobileOpen(false); logout(); navigate('/'); }}>
                     <ListItemText primary="Logout" />

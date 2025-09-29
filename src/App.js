@@ -9,6 +9,7 @@ import appRoutes from './routes';
 import { AuthProvider } from './state/AuthContext';
 import { NotificationProvider } from './contexts/NotificationContext';
 import { OrderProvider } from './contexts/OrderContext';
+import SupportChatWidget from './components/support/SupportChatWidget';
 
 function AppContent() {
   const location = useLocation();
@@ -27,6 +28,7 @@ function AppContent() {
             {element}
           </React.Suspense>
         </Container>
+        <SupportChatWidget />
       </Box>
     </Layout>
   );
