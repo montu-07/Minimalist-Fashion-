@@ -22,6 +22,9 @@ import { useCart } from 'state/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { createOrder } from 'services/ordersStore';
 import { useAuth } from 'state/AuthContext';
+import { applyMemberBenefits, getMembership } from 'services/memberships';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
+import { trackEvent } from 'services/recommendations';
 
 const steps = ['Address', 'Delivery', 'Payment', 'Review'];
 
@@ -56,8 +59,12 @@ function CheckoutPage() {
   });
   const [error, setError] = React.useState('');
 
-  const shippingCost = delivery === 'express' ? 14.99 : delivery === 'next' ? 24.99 : 0;
-  const total = subtotal + shippingCost;
+  const baseShipping = delivery === 'express' ? 14.99 : delivery === 'next' ? 24.99 : 0;
+  const memberCalc = applyMemberBenefits({ subtotal, shipping: baseShipping }, user);
+  const memberActive = !!getMembership(user);
+  const memberDiscount = memberCalc.discount;
+  const shippingCost = memberCalc.shipping;
+  const total = memberCalc.total;
 
   const validateStep = () => {
     setError('');
@@ -118,8 +125,12 @@ function CheckoutPage() {
       paypalEmail: payment.paypalEmail,
       stripeEmail: payment.stripeEmail,
     };
-    const totals = { subtotal, shipping: shippingCost, total };
+    const totals = { subtotal, discount: memberDiscount, shipping: shippingCost, total, memberActive };
     const order = createOrder({ items, address, delivery, paymentMethod, paymentMeta, totals, user });
+    try {
+      // Track purchase for each product
+      items.forEach((i) => trackEvent({ type: 'purchase', productId: i.product.id, category: i.product.category }));
+    } catch {}
     clear();
     setActiveStep(steps.length);
     navigate(`/orders/${order.id}`);
@@ -280,9 +291,11 @@ function CheckoutPage() {
             {activeStep === 2 && PaymentForm}
             {activeStep === 3 && Review}
             {activeStep >= steps.length && (
-              <Stack spacing={1}>
+              <Stack spacing={2}>
                 <Typography variant="h6">Thank you! 🎉</Typography>
                 <Typography color="text.secondary">Your order has been placed. A confirmation email will arrive shortly.</Typography>
+                <Divider />
+                <RecommendationsRail title="You might also like" limit={8} />
               </Stack>
             )}
           </Paper>
@@ -311,7 +324,10 @@ function CheckoutPage() {
             </Stack>
             <Divider sx={{ my: 1 }} />
             <Stack direction="row" justifyContent="space-between"><Typography>Subtotal</Typography><Typography>${subtotal.toFixed(2)}</Typography></Stack>
-            <Stack direction="row" justifyContent="space-between"><Typography>Shipping</Typography><Typography>{shippingCost ? `$${shippingCost.toFixed(2)}` : 'Free'}</Typography></Stack>
+            {memberDiscount > 0 && (
+              <Stack direction="row" justifyContent="space-between"><Typography>Member Discount</Typography><Typography>- ${memberDiscount.toFixed(2)}</Typography></Stack>
+            )}
+            <Stack direction="row" justifyContent="space-between"><Typography>Shipping{memberActive && shippingCost===0 ? ' (Member Benefit)' : ''}</Typography><Typography>{shippingCost ? `$${shippingCost.toFixed(2)}` : 'Free'}</Typography></Stack>
             <Stack direction="row" justifyContent="space-between"><Typography variant="h6">Total</Typography><Typography variant="h6">${total.toFixed(2)}</Typography></Stack>
           </Paper>
         </Grid>

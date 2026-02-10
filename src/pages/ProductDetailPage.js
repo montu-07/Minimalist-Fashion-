@@ -37,11 +37,18 @@ import { getAllProducts } from 'services/productsStore';
 import { useCart } from 'state/CartContext';
 import { useWishlist } from 'state/WishlistContext';
 import { getGalleryImages, getProductImage, onImgErrorSwap } from 'core/utils/imageForProduct';
+import RecommendationsRail from 'components/recommendations/RecommendationsRail';
+import { trackEvent } from 'services/recommendations';
+import TryOnDialog from 'components/ar/TryOnDialog';
+import Chip from '@mui/material/Chip';
+import { useAuth } from 'state/AuthContext';
+import { isMember } from 'services/memberships';
 
 function ProductDetailPage() {
   const { id } = useParams();
   const { addItem } = useCart();
   const { toggle: toggleWish, contains: wishContains } = useWishlist();
+  const { user } = useAuth();
   const [all, setAll] = React.useState(getAllProducts());
   React.useEffect(() => {
     const onUpdate = () => setAll(getAllProducts());
@@ -54,6 +61,8 @@ function ProductDetailPage() {
   const [active, setActive] = React.useState(0);
   const [color, setColor] = React.useState(product?.color || '');
   const [size, setSize] = React.useState(product?.size || '');
+  const [tryOpen, setTryOpen] = React.useState(false);
+  const locked = ((product?.exclusive || (product?.tags||[]).includes('exclusive')) || (product?.earlyAccess || (product?.tags||[]).includes('earlyAccess'))) && !isMember(user);
 
   // When route changes to a different product, reset local view state and scroll to top
   React.useEffect(() => {
@@ -65,6 +74,13 @@ function ProductDetailPage() {
     setImages(getGalleryImages(product, 5, { w: 800, h: 600 }));
     try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch {}
   }, [routeId, product?.id]);
+
+  // Track PDP view for recommendations
+  React.useEffect(() => {
+    if (product?.id) {
+      try { trackEvent({ type: 'detail_view', productId: product.id, category: product.category }); } catch {}
+    }
+  }, [product?.id]);
   const specs = React.useMemo(() => ([
     { label: 'Brand', value: product?.brand || '-' },
     { label: 'Category', value: product?.category || '-' },
@@ -151,8 +167,14 @@ function ProductDetailPage() {
           ))}
         </Stack>
       </Grid>
+      
       <Grid item xs={12} md={6}>
-        <Typography variant="h5" gutterBottom>{product.title}</Typography>
+        <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+          <Typography variant="h5" gutterBottom sx={{ mb: 0 }}>{product.title}</Typography>
+          {(product.exclusive || product.earlyAccess || (Array.isArray(product.tags) && (product.tags.includes('exclusive') || product.tags.includes('earlyAccess')))) && (
+            <Chip size="small" label={product.exclusive || (product.tags||[]).includes('exclusive') ? 'Member Exclusive' : 'Early Access'} color={(product.exclusive || (product.tags||[]).includes('exclusive')) ? 'secondary' : 'primary'} />
+          )}
+        </Stack>
         <Rating value={product.rating} precision={0.5} readOnly sx={{ mb: 1 }} />
         <Typography variant="h6" sx={{ mb: 2 }}>${product.price.toFixed(2)}</Typography>
         <Typography color="text.secondary" sx={{ mb: 3 }}>{product.description}</Typography>
@@ -175,7 +197,11 @@ function ProductDetailPage() {
           </Box>
         </Stack>
         <Stack direction="row" spacing={2}>
-          <Button variant="contained" onClick={() => addItem({ ...product, variant: { color, size } }, 1)}>Add to Cart</Button>
+          <Button variant="contained" onClick={() => { addItem({ ...product, variant: { color, size } }, 1); try { trackEvent({ type: 'add_to_cart', productId: product.id, category: product.category }); } catch {} }} disabled={locked}>{locked ? 'Members Only' : 'Add to Cart'}</Button>
+          {locked && (
+            <Button component={Link} to="/membership" variant="outlined" color="secondary">Join Membership</Button>
+          )}
+          <Button variant="outlined" onClick={() => { setTryOpen(true); try { trackEvent({ type: 'quick_view', productId: product.id, category: product.category }); } catch {} }}>Try in AR</Button>
           <Button
             variant={wishContains(product.id) ? 'contained' : 'outlined'}
             color={wishContains(product.id) ? 'secondary' : 'primary'}
@@ -185,6 +211,16 @@ function ProductDetailPage() {
           </Button>
         </Stack>
       </Grid>
+
+      <Grid item xs={12}>
+        <RecommendationsRail
+          title="Customers also bought"
+          excludeIds={[product.id]}
+          boost={{ categories: [product.category, ...(product.categories || [])].filter(Boolean) }}
+          limit={8}
+        />
+      </Grid>
+      <TryOnDialog open={tryOpen} onClose={() => setTryOpen(false)} imageSrc={getProductImage(product, { w: 800, h: 800, index: 0 })} title={`Try ${product.title}`} />
       {/* Product details: Description + Specifications */}
       <Grid item xs={12}>
         <Grid container spacing={2}>

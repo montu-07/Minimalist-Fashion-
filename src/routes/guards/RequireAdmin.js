@@ -10,7 +10,7 @@ export default function RequireAdmin({ children }) {
   const isAdmin = adminId === REQUIRED_ADMIN_ID;
 
   if (!isAdmin) {
-    return <Navigate to="/admin/login" replace state={{ from: location }} />;
+    return <Navigate to="/access-denied" replace state={{ from: location }} />;
   }
   return children;
 }

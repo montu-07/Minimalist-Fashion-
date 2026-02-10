@@ -29,9 +29,13 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
 import Divider from '@mui/material/Divider';
 import Checkbox from '@mui/material/Checkbox';
+import TableSortLabel from '@mui/material/TableSortLabel';
+import UploadIcon from '@mui/icons-material/UploadFile';
+import DownloadIcon from '@mui/icons-material/DownloadOutlined';
 // import FormHelperText from '@mui/material/FormHelperText';
-import { upsertUser, removeUser, queryUsers, toggleUserStatus } from 'services/usersStore';
+import { upsertUser, removeUser, queryUsers, toggleUserStatus, getAllUsers } from 'services/usersStore';
 import { bulkRemoveUsers, setUsersStatus } from 'services/usersStore';
+import BulkUsersUploadDialog from 'components/admin/BulkUsersUploadDialog';
 
 export default function UsersAdminPage() {
   const [q, setQ] = React.useState('');
@@ -48,12 +52,24 @@ export default function UsersAdminPage() {
   const [toDelete, setToDelete] = React.useState(null);
   const [selected, setSelected] = React.useState([]);
   const [errors, setErrors] = React.useState({});
+  const [orderBy, setOrderBy] = React.useState('name'); // name|email|role|status
+  const [orderDir, setOrderDir] = React.useState('asc');
+  const [bulkOpen, setBulkOpen] = React.useState(false);
 
   const load = React.useCallback(() => {
     const { items, totalPages: tp } = queryUsers({ q, role, status, page, pageSize });
-    setRows(items);
+    // Local sorting on current page
+    const sorted = [...items].sort((a, b) => {
+      const dir = orderDir === 'asc' ? 1 : -1;
+      const va = String(a[orderBy] || '').toLowerCase();
+      const vb = String(b[orderBy] || '').toLowerCase();
+      if (va < vb) return -1 * dir;
+      if (va > vb) return 1 * dir;
+      return 0;
+    });
+    setRows(sorted);
     setTotalPages(tp);
-  }, [q, role, status, page, pageSize]);
+  }, [q, role, status, page, pageSize, orderBy, orderDir]);
 
   React.useEffect(() => { load(); }, [load]);
   React.useEffect(() => {
@@ -65,19 +81,28 @@ export default function UsersAdminPage() {
   const openAdd = () => { setCurrent({ id: '', name: '', email: '', role: 'user', status: 'active', avatar: '', password: '' }); setEditOpen(true); };
   const openEdit = (u) => { setCurrent({ ...u, password: '' }); setEditOpen(true); };
   const openView = (u) => { setCurrent(u); setViewOpen(true); };
+  const toggleSort = (key) => {
+    if (orderBy === key) setOrderDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setOrderBy(key); setOrderDir('asc'); }
+  };
 
   const save = () => {
     // Validation
     const nextErrors = {};
-    if (!current.name.trim()) nextErrors.name = 'Name is required';
+    const name = current.name.trim();
+    if (!name) nextErrors.name = 'Name is required';
     const mail = current.email.trim();
     const emailOk = /^\S+@\S+\.\S+$/.test(mail);
     if (!mail) nextErrors.email = 'Email is required';
     else if (!emailOk) nextErrors.email = 'Enter a valid email';
+    else {
+      const exists = getAllUsers().some((u) => u.email.toLowerCase() === mail.toLowerCase() && u.id !== current.id);
+      if (exists) nextErrors.email = 'Email already exists';
+    }
     if (!current.id && (!current.password || current.password.length < 6)) nextErrors.password = 'Password must be at least 6 characters';
     setErrors(nextErrors);
     if (Object.keys(nextErrors).length) return;
-    upsertUser(current);
+    upsertUser({ ...current, name, email: mail });
     setEditOpen(false);
     setPage(1);
     load();
@@ -132,12 +157,22 @@ export default function UsersAdminPage() {
             <MenuItem value="all">All Roles</MenuItem>
             <MenuItem value="admin">Admin</MenuItem>
             <MenuItem value="user">User</MenuItem>
+            <MenuItem value="manager">Manager</MenuItem>
+            <MenuItem value="support">Support</MenuItem>
           </Select>
           <Select size="small" value={status} onChange={(e) => { setStatus(e.target.value); setPage(1); }} sx={{ minWidth: 160 }}>
             <MenuItem value="all">All Status</MenuItem>
             <MenuItem value="active">Active</MenuItem>
             <MenuItem value="inactive">Inactive</MenuItem>
           </Select>
+          <Button variant="outlined" startIcon={<UploadIcon />} onClick={() => setBulkOpen(true)}>Bulk Upload</Button>
+          <Button variant="outlined" startIcon={<DownloadIcon />} onClick={() => {
+            const { items } = queryUsers({ q, role, status, page, pageSize: 10000 });
+            const header = ['id','name','email','role','status','createdAt','updatedAt'];
+            const rowsCsv = items.map(u => [u.id,u.name,u.email,u.role,u.status,u.createdAt,u.updatedAt].map(v => `"${(v ?? '').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+            const blob = new Blob([header.join(',') + '\n' + rowsCsv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'users-export.csv'; a.click(); URL.revokeObjectURL(url);
+          }}>Export CSV</Button>
           <Button variant="contained" onClick={openAdd}>Add User</Button>
         </Stack>
       </Stack>
@@ -148,10 +183,10 @@ export default function UsersAdminPage() {
             <TableRow>
               <TableCell padding="checkbox"><Checkbox checked={selected.length>0 && selected.length===rows.length} indeterminate={selected.length>0 && selected.length<rows.length} onChange={toggleSelectAll} /></TableCell>
               <TableCell width={56}>Avatar</TableCell>
-              <TableCell>Name</TableCell>
-              <TableCell>Email</TableCell>
-              <TableCell>Role</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell sortDirection={orderBy==='name'?orderDir:false}><TableSortLabel active={orderBy==='name'} direction={orderDir} onClick={() => toggleSort('name')}>Name</TableSortLabel></TableCell>
+              <TableCell sortDirection={orderBy==='email'?orderDir:false}><TableSortLabel active={orderBy==='email'} direction={orderDir} onClick={() => toggleSort('email')}>Email</TableSortLabel></TableCell>
+              <TableCell sortDirection={orderBy==='role'?orderDir:false}><TableSortLabel active={orderBy==='role'} direction={orderDir} onClick={() => toggleSort('role')}>Role</TableSortLabel></TableCell>
+              <TableCell sortDirection={orderBy==='status'?orderDir:false}><TableSortLabel active={orderBy==='status'} direction={orderDir} onClick={() => toggleSort('status')}>Status</TableSortLabel></TableCell>
               <TableCell align="right" width={200}>Actions</TableCell>
             </TableRow>
           </TableHead>
@@ -217,6 +252,9 @@ export default function UsersAdminPage() {
             {!current.id && (
               <TextField label="Password" type="password" value={current.password} onChange={(e) => setCurrent({ ...current, password: e.target.value })} fullWidth error={!!errors.password} helperText={errors.password || 'At least 6 characters'} />
             )}
+            {current.id && (
+              <TextField label="Reset Password (optional)" type="password" value={current.password || ''} onChange={(e) => setCurrent({ ...current, password: e.target.value })} fullWidth helperText="Leave blank to keep existing password" />
+            )}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <Select size="small" value={current.role} onChange={(e) => setCurrent({ ...current, role: e.target.value })} sx={{ minWidth: 180 }}>
                 <MenuItem value="user">User</MenuItem>
@@ -249,6 +287,12 @@ export default function UsersAdminPage() {
               <Chip label={current.role} variant="outlined" />
               <Chip label={current.status} color={current.status === 'active' ? 'success' : 'default'} />
             </Stack>
+            <Typography variant="caption" color="text.secondary">
+              Created: {current.createdAt ? new Date(current.createdAt).toLocaleString() : '—'}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Updated: {current.updatedAt ? new Date(current.updatedAt).toLocaleString() : '—'}
+            </Typography>
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -267,6 +311,9 @@ export default function UsersAdminPage() {
           <Button color="error" variant="contained" onClick={doDelete}>Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Bulk Upload Dialog */}
+      <BulkUsersUploadDialog open={bulkOpen} onClose={() => setBulkOpen(false)} onImported={() => { setPage(1); load(); }} />
     </Box>
   );
 }

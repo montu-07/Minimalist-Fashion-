@@ -7,6 +7,7 @@
       "@services/*": ["services/*"],
       "@features/*": ["features/*"],
       "@components/*": ["components/*"],
+      "@contexts/*": ["contexts/*"],
       "@pages/*": ["pages/*"],
       "@shared/*": ["shared/*"],
       "@state/*": ["state/*"],
